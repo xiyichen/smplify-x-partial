@@ -215,7 +215,6 @@ def main(**args):
                 from PIXIE.pixielib.pixie import PIXIE
                 from PIXIE.pixielib.datasets import detectors
                 from utils import get_PIXIE_data
-                pixie = PIXIE(config=pixie_cfg, device=torch.device('cpu'))
                 detector = detectors.FasterRCNN(device=torch.device('cpu'))
 
     for idx, data in enumerate(dataset_obj):
@@ -280,6 +279,8 @@ def main(**args):
                     if regression_results_path:
                         regression_results = joblib.load(osp.join(regression_results_path, img_name, img_name + '_param.pkl'))
                     else:
+                        pixie_cfg.model.smplx_model_path = smplx_path
+                        pixie = PIXIE(config=pixie_cfg, device=torch.device('cpu'))
                         data = {'body': get_PIXIE_data(data['img_path'], img_name, detector, pixie.device)}
                         regression_results = pixie.encode(data, threthold=True, keep_local=True, copy_and_paste=False)['body']
                         _ = pixie.decode(regression_results, param_type='body')
