@@ -46,6 +46,9 @@ from human_body_prior.tools.model_loader import load_vposer
 from human_body_prior.tools.visualization_tools import render_smpl_params, imagearray2file
 from human_body_prior.body_model.body_model import BodyModel
 from utils import _compute_euler_from_matrix, optimization_visualization
+from sys import platform
+if platform == 'linux' or platform == "linux2":
+    os.environ['PYOPENGL_PLATFORM'] = 'egl'
 
 def fit_single_frame(img,
                      keypoints,

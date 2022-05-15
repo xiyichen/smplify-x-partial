@@ -301,7 +301,7 @@ def _compute_euler_from_matrix(dcm, seq='xyz', extrinsic=False):
     if extrinsic:
         seq = seq[::-1]
 
-    if dcm.ndim == 2:
+    if len(dcm.shape) == 2:
         dcm = dcm[None, :, :]
     num_rotations = dcm.shape[0]
 
@@ -330,7 +330,7 @@ def _compute_euler_from_matrix(dcm, seq='xyz', extrinsic=False):
     ]).type(dcm.dtype)
     # import IPython; IPython.embed(); exit
     res = torch.einsum('ij,...jk->...ik', c, dcm)
-    dcm_transformed = torch.einsum('...ij,jk->...ik', res, c.T @ rot)
+    dcm_transformed = torch.einsum('...ij,jk->...ik', res, torch.transpose(c, 0, 1) @ rot)
 
     # Step 4
     angles = torch.zeros((num_rotations, 3), dtype=dcm.dtype, device=device)
@@ -351,7 +351,7 @@ def _compute_euler_from_matrix(dcm, seq='xyz', extrinsic=False):
     angles[:, 1] += offset
 
     # 5b
-    safe_mask = torch.logical_and(safe1, safe2)
+    safe_mask = (safe1 > 0) & (safe2 > 0)
     angles[safe_mask, 0] = torch.atan2(dcm_transformed[safe_mask, 0, 2],
                                       -dcm_transformed[safe_mask, 1, 2])
     angles[safe_mask, 2] = torch.atan2(dcm_transformed[safe_mask, 2, 0],
@@ -389,14 +389,13 @@ def _compute_euler_from_matrix(dcm, seq='xyz', extrinsic=False):
     # Step 7
     if seq[0] == seq[2]:
         # lambda = 0, so we can only ensure angle2 -> [0, pi]
-        adjust_mask = torch.logical_or(angles[:, 1] < 0, angles[:, 1] > np.pi)
+        adjust_mask = (angles[:, 1] < 0) | (angles[:, 1] > np.pi)
     else:
         # lambda = + or - pi/2, so we can ensure angle2 -> [-pi/2, pi/2]
-        adjust_mask = torch.logical_or(angles[:, 1] < -np.pi / 2,
-                                    angles[:, 1] > np.pi / 2)
+        adjust_mask = (angles[:, 1] < -np.pi / 2) | (angles[:, 1] > np.pi / 2)
 
     # Dont adjust gimbal locked angle sequences
-    adjust_mask = torch.logical_and(adjust_mask, safe_mask)
+    adjust_mask = (adjust_mask > 0) & (safe_mask > 0)
 
     angles[adjust_mask, 0] += np.pi
     angles[adjust_mask, 1] = 2 * offset - angles[adjust_mask, 1]
