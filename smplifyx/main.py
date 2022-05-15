@@ -21,6 +21,7 @@ from __future__ import division
 
 import sys
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import os.path as osp
 
@@ -37,15 +38,17 @@ from fit_single_frame import fit_single_frame
 
 from camera import create_camera
 from prior import create_prior
-
+import joblib
+from homogenus.homogenus.tf.homogenus_infer import Homogenus_infer
+import shutil
 torch.backends.cudnn.enabled = False
-
 
 def main(**args):
     output_folder = args.pop('output_folder')
     output_folder = osp.expandvars(output_folder)
-    if not osp.exists(output_folder):
-        os.makedirs(output_folder)
+    if osp.exists(output_folder):
+        shutil.rmtree(output_folder)
+    os.makedirs(output_folder)
 
     # Store the arguments for the current experiment
     conf_fn = osp.join(output_folder, 'conf.yaml')
@@ -113,7 +116,6 @@ def main(**args):
                         create_transl=False,
                         dtype=dtype,
                         **args)
-
     male_model = smplx.create(gender='male', **model_params)
     # SMPL-H has no gender-neutral model
     if args.get('model_type') != 'smplh':
@@ -198,12 +200,36 @@ def main(**args):
     # Add a fake batch dimension for broadcasting
     joint_weights.unsqueeze_(dim=0)
 
+    use_gender_classifier = args.get('use_gender_classifier', False)
+    if use_gender_classifier:
+        from utils import predict_gender_one_img
+        gender_inferer = Homogenus_infer(args.get('homogeneous_ckpt'))
+
+    regression_prior = args.get('regression_prior', None)
+    regression_results = None
+    if regression_prior:
+        if regression_prior == 'PIXIE':
+            regression_results_path = args.get('pixie_results_directory', None)
+            if not regression_results_path:
+                from PIXIE.pixielib.utils.config import cfg as pixie_cfg
+                from PIXIE.pixielib.pixie import PIXIE
+                from PIXIE.pixielib.datasets import detectors
+                from utils import get_PIXIE_data
+                pixie = PIXIE(config=pixie_cfg, device=torch.device('cpu'))
+                detector = detectors.FasterRCNN(device=torch.device('cpu'))
+
     for idx, data in enumerate(dataset_obj):
+        if idx < 0:
+            continue
 
         img = data['img']
         fn = data['fn']
         keypoints = data['keypoints']
         print('Processing: {}'.format(data['img_path']))
+        img_path = data['img_path']
+        img_ext = img_path.split('.')[-1]
+        keypoint_path = img_path.replace('images', 'keypoints')
+        keypoint_path = keypoint_path.replace('.%s'% img_ext, '_keypoints.json')
 
         curr_result_folder = osp.join(result_folder, fn)
         if not osp.exists(curr_result_folder):
@@ -211,6 +237,7 @@ def main(**args):
         curr_mesh_folder = osp.join(mesh_folder, fn)
         if not osp.exists(curr_mesh_folder):
             os.makedirs(curr_mesh_folder)
+
         for person_id in range(keypoints.shape[0]):
             if person_id >= max_persons and max_persons > 0:
                 continue
@@ -225,13 +252,13 @@ def main(**args):
             if not osp.exists(curr_img_folder):
                 os.makedirs(curr_img_folder)
 
-            if gender_lbl_type != 'none':
-                if gender_lbl_type == 'pd' and 'gender_pd' in data:
-                    gender = data['gender_pd'][person_id]
-                if gender_lbl_type == 'gt' and 'gender_gt' in data:
-                    gender = data['gender_gt'][person_id]
+            if use_gender_classifier:
+                gender = predict_gender_one_img(gender_inferer, img_dir=img_path, keypoints_dir=keypoint_path)
+                print('Predicted gender: {}'.format(gender))
             else:
                 gender = input_gender
+
+            smplx_path = osp.join(args.get('model_folder'), 'smplx', 'SMPLX_' + gender.upper() + '.npz')
 
             if gender == 'neutral':
                 body_model = neutral_model
@@ -241,6 +268,24 @@ def main(**args):
                 body_model = male_model
 
             out_img_fn = osp.join(curr_img_folder, 'output.png')
+
+            img_name = data['img_path'].split('images')[-1].split('.')[0]
+            for i in range(len(img_name)):
+                if img_name[i] not in ['/', '\\']:
+                    img_name = img_name[i:]
+                    break
+
+            if regression_prior:
+                if regression_prior == 'PIXIE':
+                    if regression_results_path:
+                        regression_results = joblib.load(osp.join(regression_results_path, img_name, img_name + '_param.pkl'))
+                    else:
+                        data = {'body': get_PIXIE_data(data['img_path'], img_name, detector, pixie.device)}
+                        regression_results = pixie.encode(data, threthold=True, keep_local=True, copy_and_paste=False)['body']
+                        _ = pixie.decode(regression_results, param_type='body')
+                        for key in regression_results:
+                            regression_results[key] = regression_results[key].squeeze(0)
+                        regression_results['bbox'] = data['body']['bbox']
 
             fit_single_frame(img, keypoints[[person_id]],
                              body_model=body_model,
@@ -259,6 +304,10 @@ def main(**args):
                              right_hand_prior=right_hand_prior,
                              jaw_prior=jaw_prior,
                              angle_prior=angle_prior,
+                             img_name=img_name,
+                             regression_results=regression_results,
+                             smplx_path=smplx_path,
+                             curr_img_folder=curr_img_folder,
                              **args)
 
     elapsed = time.time() - start

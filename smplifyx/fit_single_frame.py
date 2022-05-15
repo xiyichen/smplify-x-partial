@@ -26,7 +26,6 @@ try:
 except ImportError:
     import pickle
 
-import sys
 import os
 import os.path as osp
 
@@ -38,13 +37,15 @@ from tqdm import tqdm
 from collections import defaultdict
 
 import cv2
-import PIL.Image as pil_img
 
 from optimizers import optim_factory
 
 import fitting
+import PIL.Image as pil_img
 from human_body_prior.tools.model_loader import load_vposer
-
+from human_body_prior.tools.visualization_tools import render_smpl_params, imagearray2file
+from human_body_prior.body_model.body_model import BodyModel
+from utils import _compute_euler_from_matrix, optimization_visualization
 
 def fit_single_frame(img,
                      keypoints,
@@ -97,8 +98,18 @@ def fit_single_frame(img,
                      ign_part_pairs=None,
                      left_shoulder_idx=2,
                      right_shoulder_idx=5,
+                     output_folder='.',
+                     img_name='',
+                     regression_results=None,
+                     smplx_path='./smplx_model/models/smplx/SMPLX_MALE.npz',
+                     curr_img_folder='.',
                      **kwargs):
+
     assert batch_size == 1, 'PyTorch L-BFGS only supports batch_size == 1'
+
+    img = torch.tensor(img, dtype=dtype)
+
+    H, W, _ = img.shape
 
     device = torch.device('cuda') if use_cuda else torch.device('cpu')
 
@@ -177,23 +188,69 @@ def fit_single_frame(img,
     assert (len(coll_loss_weights) ==
             len(body_pose_prior_weights)), msg
 
+    if regression_results:
+        model_data = np.load(smplx_path, allow_pickle=True)
+        regression_pose = regression_results['body_pose']
+        regression_pose = [_compute_euler_from_matrix(torch.tensor(joint_rotation, device=device)) for joint_rotation in regression_pose]
+        regression_pose = torch.cat(regression_pose).reshape(1, -1)
+
     use_vposer = kwargs.get('use_vposer', True)
     vposer, pose_embedding = [None, ] * 2
     if use_vposer:
-        pose_embedding = torch.zeros([batch_size, 32],
-                                     dtype=dtype, device=device,
-                                     requires_grad=True)
-
         vposer_ckpt = osp.expandvars(vposer_ckpt)
         vposer, _ = load_vposer(vposer_ckpt, vp_model='snapshot')
         vposer = vposer.to(device=device)
         vposer.eval()
+        if regression_results:
+            pose_embedding_init = torch.tensor(vposer.encode(regression_pose).sample(), dtype=dtype, device=device,
+                                               requires_grad=True)
+            pose_embedding = torch.tensor(pose_embedding_init, dtype=dtype, device=device,
+                                          requires_grad=True)
 
-    if use_vposer:
-        body_mean_pose = torch.zeros([batch_size, vposer_latent_dim],
-                                     dtype=dtype)
+            if visualize:
+                with torch.no_grad():
+                    vposer_rendered_img_save_path = os.path.join(curr_img_folder, '{}_regression_pose.png'.format(img_name))
+                    bm = BodyModel(smplx_path).to('cuda') if use_cuda else BodyModel(bm_path=smplx_path)
+                    vposer_rendered_img = render_smpl_params(bm, regression_pose.reshape((-1, 21, 3))).reshape(1, 1, 1, 400, 400, 3)
+                    vposer_rendered_img = imagearray2file(vposer_rendered_img)[0]
+                    vposer_rendered_img = pil_img.fromarray(vposer_rendered_img)
+                    vposer_rendered_img.save(vposer_rendered_img_save_path)
+                    print("saved regression pose to %s" % vposer_rendered_img_save_path)
+        else:
+            pose_embedding_init = torch.zeros([batch_size, vposer_latent_dim],
+                                              dtype=dtype, device=device,
+                                              requires_grad=True)
+            pose_embedding = pose_embedding_init
+
+    if regression_results:
+        global_pose = _compute_euler_from_matrix(torch.tensor(regression_results['global_pose'], device=device))
+
+        jaw_pose = _compute_euler_from_matrix(torch.tensor(regression_results['jaw_pose'], device=device))
+
+        left_hand_pose = regression_results['left_hand_pose']
+        left_hand_pose = [_compute_euler_from_matrix(torch.tensor(joint_rotation, device=device)) for joint_rotation in
+                          left_hand_pose]
+        left_hand_pose = torch.cat(left_hand_pose).reshape(-1, 1)
+        num_pca_comps = kwargs.get('num_pca_comps')
+        left_hand_components = torch.tensor(model_data['hands_componentsl'][:num_pca_comps], device=device)
+        left_hand_pose = (left_hand_components @ left_hand_pose).reshape(1, -1)
+
+        right_hand_pose = regression_results['right_hand_pose']
+        right_hand_pose = [_compute_euler_from_matrix(torch.tensor(joint_rotation, device=device)) for joint_rotation in
+                           right_hand_pose]
+        right_hand_pose = torch.cat(right_hand_pose).reshape(-1, 1)
+        right_hand_components = torch.tensor(model_data['hands_componentsr'][:num_pca_comps], device=device)
+        right_hand_pose = (right_hand_components @ right_hand_pose).reshape(1, -1)
+
+        shape_params = regression_results['shape']
+        exp_params = regression_results['exp']
+
+        new_params = defaultdict(global_orient=global_pose, body_pose=pose_embedding, jaw_pose=jaw_pose,
+                                 left_hand_pose=left_hand_pose, right_hand_pose=right_hand_pose, betas=shape_params,
+                                 expression=exp_params)
     else:
-        body_mean_pose = body_pose_prior.get_mean().detach().cpu()
+        new_params = defaultdict(body_pose=pose_embedding)
+    body_model.reset_params(**new_params)
 
     keypoint_data = torch.tensor(keypoints, dtype=dtype)
     gt_joints = keypoint_data[:, :, :2]
@@ -204,6 +261,17 @@ def fit_single_frame(img,
     gt_joints = gt_joints.to(device=device, dtype=dtype)
     if use_joints_conf:
         joints_conf = joints_conf.to(device=device, dtype=dtype)
+
+    indices_low_conf = [i for i in range(len(joints_conf[0])) if joints_conf[0][i] < 0.2]
+    joint_weights[:, indices_low_conf] = 0
+    indices_5kpts = [2, 5, 8, 15, 16]
+
+    init_joints_idxs_trimmed = []
+    for idx in init_joints_idxs:
+        if gt_joints[0, idx, 0] != 0 and gt_joints[0, idx, 1] != 0:
+            init_joints_idxs_trimmed.append(idx)
+
+    init_joints_idxs = init_joints_idxs_trimmed
 
     # Create the search tree
     search_tree = None
@@ -267,13 +335,78 @@ def fit_single_frame(img,
     init_joints_idxs = torch.tensor(init_joints_idxs, device=device)
 
     edge_indices = kwargs.get('body_tri_idxs')
-    init_t = fitting.guess_init(body_model, gt_joints, edge_indices,
-                                use_vposer=use_vposer, vposer=vposer,
-                                pose_embedding=pose_embedding,
-                                model_type=kwargs.get('model_type', 'smpl'),
-                                focal_length=focal_length, dtype=dtype)
+    if kwargs.get('use_camera_prior') and regression_results:
+        left, top, right, bottom = regression_results['bbox']
+
+        RES = 224
+
+        old_size = max(right - left, bottom - top)
+
+        center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0])
+        size = int(old_size * 1.1)
+
+        top_left_x = center[0] - size / 2
+        top_left_y = center[1] - size / 2
+        bottom_right_x = center[0] + size / 2
+        bottom_right_y = center[1] + size / 2
+
+        b = size
+        cx = (top_left_x + bottom_right_x) / 2
+        cy = (top_left_y + bottom_right_y) / 2
+
+        pred_cam = regression_results['body_cam']
+        s = pred_cam[0]
+
+        r = b / RES
+
+        tz = (2 * focal_length) / (r * RES * s)
+        cxhat = (2 * (cx - W / 2)) / (s * (b))
+        cyhat = (2 * (cy - H / 2)) / (s * (b))
+        tx = pred_cam[1] - cxhat
+        ty = pred_cam[2] - cyhat
+        init_t = torch.tensor([[pred_cam[1], pred_cam[2], 2 * focal_length / (s * b + 1e-9)]], dtype=dtype, device=device)
+        with torch.no_grad():
+            camera.translation[:] = torch.tensor(init_t.reshape(1, -1), device=device)
+            camera.center[:] = torch.tensor([cx, cy], dtype=dtype, device=device)
+
+    else:
+        init_t = fitting.guess_init(body_model, gt_joints, edge_indices,
+                                    use_vposer=use_vposer, vposer=vposer,
+                                    pose_embedding=pose_embedding,
+                                    model_type=kwargs.get('model_type', 'smpl'),
+                                    focal_length=focal_length, dtype=dtype)
+        with torch.no_grad():
+            camera.translation[:] = torch.tensor(init_t.reshape(1, -1), device=device)
+            camera.center[:] = torch.tensor([W, H], dtype=dtype) * 0.5
+
+    if visualize:
+        with torch.no_grad():
+            out_img_save_path = os.path.join(curr_img_folder, '{}_init_cam.png'.format(img_name))
+            vposer_rendered_img_save_path = None
+            optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
+                                       focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
+                                       use_cuda, mesh_fn, **kwargs)
+
+            print("saved rendered mesh and vposer for step 1 to %s" % out_img_save_path)
+
+            body_pose = vposer.decode(pose_embedding_init, output_type='aa').view(1, -1) if use_vposer else None
+            body_model_output = body_model(return_verts=True,
+                                           body_pose=body_pose)
+            projected_joints = camera(body_model_output.joints)
+            projected_joints_5kpts_arr = projected_joints[:, indices_5kpts, :]
+            gt_joints_5kpts_arr = gt_joints[:, indices_5kpts]
+            from PIL import Image, ImageDraw
+            im = Image.open(osp.join(kwargs.get('data_folder'), 'images', img_name + '.jpg'))
+            draw = ImageDraw.Draw(im)
+            for x, y in gt_joints_5kpts_arr[0]:
+                draw.ellipse((x, y, x + 10, y + 10), fill=(255, 0, 0), outline=(0, 0, 0))
+            fills = [(255, 192, 103), (0, 0, 255), (0, 255, 0), (255, 255, 255), (255, 255, 0)]
+            for idx, (x, y) in enumerate(projected_joints_5kpts_arr[0]):
+                draw.ellipse((x, y, x + 10, y + 10), fill=fills[idx], outline=(0, 0, 0))
+            im.save(os.path.join(curr_img_folder, '{}_5kpts_positions_init_cam.png'.format(img_name)))
 
     camera_loss = fitting.create_loss('camera_init',
+                                      joints_conf=joints_conf,
                                       trans_estimation=init_t,
                                       init_joints_idxs=init_joints_idxs,
                                       depth_loss_weight=depth_loss_weight,
@@ -303,11 +436,7 @@ def fit_single_frame(img,
     loss = loss.to(device=device)
 
     with fitting.FittingMonitor(
-            batch_size=batch_size, visualize=visualize, **kwargs) as monitor:
-
-        img = torch.tensor(img, dtype=dtype)
-
-        H, W, _ = img.shape
+            batch_size=batch_size, visualize=False, **kwargs) as monitor:
 
         data_weight = 1000 / H
         # The closure passed to the optimizer
@@ -315,7 +444,7 @@ def fit_single_frame(img,
 
         # Reset the parameters to estimate the initial translation of the
         # body model
-        body_model.reset_params(body_pose=body_mean_pose)
+        # body_model.reset_params(body_pose=body_mean_pose)
 
         # If the distance between the 2D shoulders is smaller than a
         # predefined threshold then try 2 fits, the initial one and a 180
@@ -326,12 +455,11 @@ def fit_single_frame(img,
 
         # Update the value of the translation of the camera as well as
         # the image center.
-        with torch.no_grad():
-            camera.translation[:] = init_t.view_as(camera.translation)
-            camera.center[:] = torch.tensor([W, H], dtype=dtype) * 0.5
 
         # Re-enable gradient calculation for the camera translation
         camera.translation.requires_grad = True
+        camera.rotation.requires_grad = True
+        body_model.global_orient.requires_grad = True
 
         camera_opt_params = [camera.translation, body_model.global_orient]
 
@@ -366,6 +494,32 @@ def fit_single_frame(img,
             tqdm.write('Camera initialization final loss {:.4f}'.format(
                 cam_init_loss_val))
 
+        if visualize:
+            with torch.no_grad():
+                out_img_save_path = os.path.join(curr_img_folder, '{}_step1.png'.format(img_name))
+                vposer_rendered_img_save_path = os.path.join(curr_img_folder, '{}_vposer_step1.png'.format(img_name))
+                optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
+                                           focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
+                                           use_cuda, mesh_fn, **kwargs)
+
+                print("saved rendered mesh and vposer for step 1 to %s" % out_img_save_path)
+
+                body_pose = vposer.decode(pose_embedding_init, output_type='aa').view(1, -1) if use_vposer else None
+                body_model_output = body_model(return_verts=True,
+                                               body_pose=body_pose)
+                projected_joints = camera(body_model_output.joints)
+                projected_joints_5kpts_arr = projected_joints[:, indices_5kpts, :]
+                gt_joints_5kpts_arr = gt_joints[:, indices_5kpts]
+                from PIL import Image, ImageDraw
+                im = Image.open(osp.join(kwargs.get('data_folder'), 'images', img_name + '.jpg'))
+                draw = ImageDraw.Draw(im)
+                for x, y in gt_joints_5kpts_arr[0]:
+                    draw.ellipse((x, y, x + 10, y + 10), fill=(255, 0, 0), outline=(0, 0, 0))
+                fills = [(255, 192, 103), (0, 0, 255), (0, 255, 0), (255, 255, 255), (255, 255, 0)]
+                for idx, (x, y) in enumerate(projected_joints_5kpts_arr[0]):
+                    draw.ellipse((x, y, x + 10, y + 10), fill=fills[idx], outline=(0, 0, 0))
+                im.save(os.path.join(curr_img_folder, '{}_5kpts_positions_after_cam_opt.png'.format(img_name)))
+
         # If the 2D detections/positions of the shoulder joints are too
         # close the rotate the body by 180 degrees and also fit to that
         # orientation
@@ -392,11 +546,12 @@ def fit_single_frame(img,
             opt_start = time.time()
 
             new_params = defaultdict(global_orient=orient,
-                                     body_pose=body_mean_pose)
+                                     body_pose=pose_embedding_init)
             body_model.reset_params(**new_params)
             if use_vposer:
                 with torch.no_grad():
-                    pose_embedding.fill_(0)
+                    for i in range(pose_embedding.shape[1]):
+                        pose_embedding[:, i] = pose_embedding_init[:, i]
 
             for opt_idx, curr_weights in enumerate(tqdm(opt_weights, desc='Stage')):
 
@@ -451,6 +606,16 @@ def fit_single_frame(img,
                         tqdm.write('Stage {:03d} done after {:.4f} seconds'.format(
                             opt_idx, elapsed))
 
+                if visualize:
+                    with torch.no_grad():
+                        out_img_save_path = os.path.join(curr_img_folder, '{}_{:02d}.png'.format(img_name, opt_idx))
+                        vposer_rendered_img_save_path = os.path.join(curr_img_folder,
+                                                                     '{}_vposer_{:02d}.png'.format(img_name, opt_idx))
+                        optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
+                                                   focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
+                                                   use_cuda, mesh_fn, **kwargs)
+                        print("saved rendered mesh and vposer for current stage to %s" % out_img_save_path)
+
             if interactive:
                 if use_cuda and torch.cuda.is_available():
                     torch.cuda.synchronize()
@@ -481,75 +646,3 @@ def fit_single_frame(img,
             else:
                 min_idx = 0
             pickle.dump(results[min_idx]['result'], result_file, protocol=2)
-
-    if save_meshes or visualize:
-        body_pose = vposer.decode(
-            pose_embedding,
-            output_type='aa').view(1, -1) if use_vposer else None
-
-        model_type = kwargs.get('model_type', 'smpl')
-        append_wrists = model_type == 'smpl' and use_vposer
-        if append_wrists:
-                wrist_pose = torch.zeros([body_pose.shape[0], 6],
-                                         dtype=body_pose.dtype,
-                                         device=body_pose.device)
-                body_pose = torch.cat([body_pose, wrist_pose], dim=1)
-
-        model_output = body_model(return_verts=True, body_pose=body_pose)
-        vertices = model_output.vertices.detach().cpu().numpy().squeeze()
-
-        import trimesh
-
-        out_mesh = trimesh.Trimesh(vertices, body_model.faces, process=False)
-        rot = trimesh.transformations.rotation_matrix(
-            np.radians(180), [1, 0, 0])
-        out_mesh.apply_transform(rot)
-        out_mesh.export(mesh_fn)
-
-    if visualize:
-        import pyrender
-
-        material = pyrender.MetallicRoughnessMaterial(
-            metallicFactor=0.0,
-            alphaMode='OPAQUE',
-            baseColorFactor=(1.0, 1.0, 0.9, 1.0))
-        mesh = pyrender.Mesh.from_trimesh(
-            out_mesh,
-            material=material)
-
-        scene = pyrender.Scene(bg_color=[0.0, 0.0, 0.0, 0.0],
-                               ambient_light=(0.3, 0.3, 0.3))
-        scene.add(mesh, 'mesh')
-
-        camera_center = camera.center.detach().cpu().numpy().squeeze()
-        camera_transl = camera.translation.detach().cpu().numpy().squeeze()
-        # Equivalent to 180 degrees around the y-axis. Transforms the fit to
-        # OpenGL compatible coordinate system.
-        camera_transl[0] *= -1.0
-
-        camera_pose = np.eye(4)
-        camera_pose[:3, 3] = camera_transl
-
-        camera = pyrender.camera.IntrinsicsCamera(
-            fx=focal_length, fy=focal_length,
-            cx=camera_center[0], cy=camera_center[1])
-        scene.add(camera, pose=camera_pose)
-
-        # Get the lights from the viewer
-        light_nodes = monitor.mv.viewer._create_raymond_lights()
-        for node in light_nodes:
-            scene.add_node(node)
-
-        r = pyrender.OffscreenRenderer(viewport_width=W,
-                                       viewport_height=H,
-                                       point_size=1.0)
-        color, _ = r.render(scene, flags=pyrender.RenderFlags.RGBA)
-        color = color.astype(np.float32) / 255.0
-
-        valid_mask = (color[:, :, -1] > 0)[:, :, np.newaxis]
-        input_img = img.detach().cpu().numpy()
-        output_img = (color[:, :, :-1] * valid_mask +
-                      (1 - valid_mask) * input_img)
-
-        img = pil_img.fromarray((output_img * 255).astype(np.uint8))
-        img.save(out_img_fn)

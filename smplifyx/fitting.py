@@ -45,7 +45,6 @@ def guess_init(model,
                model_type='smpl',
                **kwargs):
     ''' Initializes the camera translation vector
-
         Parameters
         ----------
         model: nn.Module
@@ -68,7 +67,6 @@ def guess_init(model,
         -------
         init_t: torch.tensor 1x3, dtype = torch.float32
             The vector with the estimated camera location
-
     '''
 
     body_pose = vposer.decode(

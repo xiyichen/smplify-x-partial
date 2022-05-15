@@ -84,9 +84,6 @@ def parse_config(argv=None):
                         ' parameters')
     parser.add_argument('--mesh_folder', type=str, default='meshes',
                         help='The folder where the output meshes are stored')
-    parser.add_argument('--gender_lbl_type', default='none',
-                        choices=['none', 'gt', 'pd'], type=str,
-                        help='The type of gender label to use')
     parser.add_argument('--gender', type=str,
                         default='neutral',
                         choices=['neutral', 'male', 'female'],
@@ -278,6 +275,21 @@ def parse_config(argv=None):
                         help='The tolerance threshold for the function')
     parser.add_argument('--maxiters', type=int, default=100,
                         help='The maximum iterations for the optimization')
+    parser.add_argument('--num_betas', type=int, default=10,
+                        help='The number of shape parameters')
+    parser.add_argument('--num_expression_coeffs', type=int, default=10,
+                        help='The number of expression parameters')
+    parser.add_argument('--regression_prior', default=None, type=str,
+                        choices=['PIXIE', None],
+                        help='The regression method to use as prior')
+    parser.add_argument('--pixie_results_directory', default=None, type=str,
+                        help='Directory of PIXIE results')
+    parser.add_argument('--use_gender_classifier', type=bool, default=False,
+                        help='Whether to use gender classifier')
+    parser.add_argument('--homogeneous_ckpt', default='./homogeneous/trained_models/tf/', type=str,
+                        help='Directory of pre-trained gender classifier models')
+    parser.add_argument('--use_camera_prior', type=bool, default=False,
+                        help='Whether to use camera prior')
 
     args = parser.parse_args(argv)
 
