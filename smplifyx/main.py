@@ -39,7 +39,6 @@ from fit_single_frame import fit_single_frame
 from camera import create_camera
 from prior import create_prior
 import joblib
-from homogenus.homogenus.tf.homogenus_infer import Homogenus_infer
 import shutil
 torch.backends.cudnn.enabled = False
 
@@ -89,7 +88,6 @@ def main(**args):
     start = time.time()
 
     input_gender = args.pop('gender', 'neutral')
-    gender_lbl_type = args.pop('gender_lbl_type', 'none')
     max_persons = args.pop('max_persons', -1)
 
     float_dtype = args.get('float_dtype', 'float32')
@@ -202,6 +200,7 @@ def main(**args):
 
     use_gender_classifier = args.get('use_gender_classifier', False)
     if use_gender_classifier:
+        from homogenus.homogenus.tf.homogenus_infer import Homogenus_infer
         from utils import predict_gender_one_img
         gender_inferer = Homogenus_infer(args.get('homogeneous_ckpt'))
 

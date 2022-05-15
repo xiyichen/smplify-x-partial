@@ -284,12 +284,12 @@ def parse_config(argv=None):
                         help='The regression method to use as prior')
     parser.add_argument('--pixie_results_directory', default=None, type=str,
                         help='Directory of PIXIE results')
-    parser.add_argument('--use_gender_classifier', type=bool, default=False,
-                        help='Whether to use gender classifier')
     parser.add_argument('--homogeneous_ckpt', default='./homogeneous/trained_models/tf/', type=str,
                         help='Directory of pre-trained gender classifier models')
-    parser.add_argument('--use_camera_prior', type=bool, default=False,
+    parser.add_argument('--use_camera_prior', type=lambda arg: arg.lower() == 'true', default=False,
                         help='Whether to use camera prior')
+    parser.add_argument('--use_gender_classifier', type=lambda arg: arg.lower() == 'true', default=False,
+                        help='Whether to use gender classifier')
 
     args = parser.parse_args(argv)
 
