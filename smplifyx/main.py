@@ -217,9 +217,6 @@ def main(**args):
                 detector = detectors.FasterRCNN(device=torch.device('cpu'))
 
     for idx, data in enumerate(dataset_obj):
-        if idx < 31:
-            continue
-
         img = data['img']
         fn = data['fn']
         keypoints = data['keypoints']
