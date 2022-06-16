@@ -217,7 +217,7 @@ def main(**args):
                 detector = detectors.FasterRCNN(device=torch.device('cpu'))
 
     for idx, data in enumerate(dataset_obj):
-        if idx < 0:
+        if idx < 31:
             continue
 
         img = data['img']
@@ -238,6 +238,8 @@ def main(**args):
 
         for person_id in range(keypoints.shape[0]):
             if person_id >= max_persons and max_persons > 0:
+                continue
+            if person_id > 0:
                 continue
 
             curr_result_fn = osp.join(curr_result_folder,
