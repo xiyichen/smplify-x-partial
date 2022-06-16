@@ -50,7 +50,7 @@ body_pose_prior_weights:
    - 7.5
    - 4.78e0
    - 4.78e0
-   - 0
+   - 4.78e0
 coll_loss_weights:
    - 0.0
    - 0.0
@@ -62,19 +62,19 @@ shape_weights:
    - 75
    - 50
    - 20
-   - 0
+   - 10
 expr_weights:
    - 150
    - 75
    - 50
    - 20
-   - 0
+   - 10
 hand_pose_prior_weights:
    - 50
    - 50
    - 10
    - 4.78
-   - 0
+   - 4.78
 jaw_pose_prior_weights:
    # First phase
    - 574,5740,5740
@@ -85,19 +85,19 @@ jaw_pose_prior_weights:
    # Fourth phase
    - 47.8,478,478
    # Fifth phase
-   - 0, 0, 0
+   - 47.8,478,478
 hand_joints_weights:
    - 0.1
    - 0.2
    - 0.5
-   - 2.0
    - 1.0
+   - 2.0
 face_joints_weights:
    - 0.1
    - 0.2
    - 0.5
-   - 2.0
    - 1.0
+   - 2.0
 use_face_contour: True
 init_joints_idxs:
     [15, 16, 2, 5, 3, 6, 9, 8, 12]
