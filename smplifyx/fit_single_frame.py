@@ -47,6 +47,8 @@ from human_body_prior.tools.visualization_tools import render_smpl_params, image
 from human_body_prior.body_model.body_model import BodyModel
 from utils import _compute_euler_from_matrix, optimization_visualization
 from sys import platform
+from plyfile import PlyElement, PlyData
+
 if platform == 'linux' or platform == "linux2":
     os.environ['PYOPENGL_PLATFORM'] = 'egl'
 
@@ -102,6 +104,7 @@ def fit_single_frame(img,
                      left_shoulder_idx=2,
                      right_shoulder_idx=5,
                      output_folder='.',
+                     result_folder='.',
                      img_name='',
                      regression_results=None,
                      smplx_path='./smplx_model/models/smplx/SMPLX_MALE.npz',
@@ -247,7 +250,6 @@ def fit_single_frame(img,
 
         shape_params = regression_results['shape']
         exp_params = regression_results['exp']
-
         new_params = defaultdict(global_orient=global_pose, body_pose=pose_embedding, jaw_pose=jaw_pose,
                                  left_hand_pose=left_hand_pose, right_hand_pose=right_hand_pose, betas=shape_params,
                                  expression=exp_params)
@@ -649,3 +651,13 @@ def fit_single_frame(img,
             else:
                 min_idx = 0
             pickle.dump(results[min_idx]['result'], result_file, protocol=2)
+
+        # save vertices to ply
+        body_pose = vposer.decode(pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
+        body_model_output = body_model(return_verts=True,
+                                       body_pose=body_pose)
+        vertices = body_model_output.vertices.squeeze(0).detach().cpu().numpy()
+        plydata = PlyElement.describe(np.array([(v[0], v[1], v[2]) for v in vertices],
+                                               dtype=[('x', 'f4'), ('y', 'f4'),('z', 'f4')]), 'vertices')
+        plydata = PlyData([plydata], text=False, byte_order='<')
+        plydata.write(os.path.join(result_folder, 'vertices.ply'))

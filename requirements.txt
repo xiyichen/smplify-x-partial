@@ -10,3 +10,4 @@ dotmap
 pyrender
 trimesh
 joblib
+plyfile
