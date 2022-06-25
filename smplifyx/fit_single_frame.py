@@ -494,10 +494,13 @@ def fit_single_frame(img,
         if interactive:
             if use_cuda and torch.cuda.is_available():
                 torch.cuda.synchronize()
-            tqdm.write('Camera initialization done after {:.4f}'.format(
-                time.time() - camera_init_start))
-            tqdm.write('Camera initialization final loss {:.4f}'.format(
-                cam_init_loss_val))
+            try:
+                tqdm.write('Camera initialization done after {:.4f}'.format(
+                    time.time() - camera_init_start))
+                tqdm.write('Camera initialization final loss {:.4f}'.format(
+                    cam_init_loss_val))
+            except:
+                pass
 
         if visualize:
             with torch.no_grad():
@@ -625,11 +628,14 @@ def fit_single_frame(img,
                 if use_cuda and torch.cuda.is_available():
                     torch.cuda.synchronize()
                 elapsed = time.time() - opt_start
-                tqdm.write(
-                    'Body fitting Orientation {} done after {:.4f} seconds'.format(
-                        or_idx, elapsed))
-                tqdm.write('Body final loss val = {:.5f}'.format(
-                    final_loss_val))
+                try:
+                    tqdm.write(
+                        'Body fitting Orientation {} done after {:.4f} seconds'.format(
+                            or_idx, elapsed))
+                    tqdm.write('Body final loss val = {:.5f}'.format(
+                        final_loss_val))
+                except:
+                    pass
 
             # Get the result of the fitting process
             # Store in it the errors list in order to compare multiple
