@@ -636,7 +636,6 @@ def fit_single_frame(img,
             # orientations, if they exist
             result = {'camera_' + str(key): val.detach().cpu().numpy()
                       for key, val in camera.named_parameters()}
-            print(camera.named_parameters())
             result['camera_center'] = camera.center.detach().cpu().numpy()
             result['H'] = H
             result['W'] = W
