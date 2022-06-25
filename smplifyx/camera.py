@@ -115,3 +115,14 @@ class PerspectiveCamera(nn.Module):
         img_points = torch.einsum('bki,bji->bjk', [camera_mat, img_points]) \
             + self.center.unsqueeze(dim=1)
         return img_points
+
+class PerspectiveCameraCroppedEHFGT(PerspectiveCamera):
+    def __init__(self, xmin=0, ymin=0):
+        rotation = torch.tensor([[[0.9992447, -0.0048801, 0.0385517],
+                                [-0.0107200, -0.9882044, 0.1527655],
+                                [0.0373514, -0.1530633, -0.9875103]]])
+        translation = torch.tensor([[-0.03609917, 0.43416458, 2.37101226]])
+        center = torch.tensor([[790.263706 - xmin, 578.90334 - ymin]])
+        focal_length = 1498.22426237
+        super().__init__(rotation=rotation, translation=translation,
+                         focal_length_x=focal_length, focal_length_y=focal_length, center=center)

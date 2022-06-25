@@ -110,7 +110,6 @@ def parse_config(argv=None):
     parser.add_argument('--optim_shape', default=True,
                         type=lambda x: x.lower() in ['true', '1'],
                         help='Optimize over the shape space')
-
     parser.add_argument('--model_folder',
                         default='models',
                         type=str,
@@ -289,6 +288,8 @@ def parse_config(argv=None):
     parser.add_argument('--use_camera_prior', type=lambda arg: arg.lower() == 'true', default=False,
                         help='Whether to use camera prior')
     parser.add_argument('--use_gender_classifier', type=lambda arg: arg.lower() == 'true', default=False,
+                        help='Whether to use gender classifier')
+    parser.add_argument('--save_vertices', type=lambda arg: arg.lower() == 'true', default=False,
                         help='Whether to use gender classifier')
 
     args = parser.parse_args(argv)

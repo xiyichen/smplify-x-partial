@@ -102,3 +102,4 @@ face_joints_weights:
 use_vposer: True
 vposer_ckpt: "vposer"
 regression_prior: null
+save_vertices: True

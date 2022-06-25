@@ -636,6 +636,11 @@ def fit_single_frame(img,
             # orientations, if they exist
             result = {'camera_' + str(key): val.detach().cpu().numpy()
                       for key, val in camera.named_parameters()}
+            print(camera.named_parameters())
+            result['camera_center'] = camera.center.detach().cpu().numpy()
+            result['H'] = H
+            result['W'] = W
+            result['focal_length'] = focal_length
             result.update({key: val.detach().cpu().numpy()
                            for key, val in body_model.named_parameters()})
             if use_vposer:
@@ -653,11 +658,12 @@ def fit_single_frame(img,
             pickle.dump(results[min_idx]['result'], result_file, protocol=2)
 
         # save vertices to ply
-        body_pose = vposer.decode(pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
-        body_model_output = body_model(return_verts=True,
-                                       body_pose=body_pose)
-        vertices = body_model_output.vertices.squeeze(0).detach().cpu().numpy()
-        plydata = PlyElement.describe(np.array([(v[0], v[1], v[2]) for v in vertices],
-                                               dtype=[('x', 'f4'), ('y', 'f4'),('z', 'f4')]), 'vertices')
-        plydata = PlyData([plydata], text=False, byte_order='<')
-        plydata.write(os.path.join(result_folder, 'vertices.ply'))
+        if kwargs.get('save_vertices'):
+            body_pose = vposer.decode(pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
+            body_model_output = body_model(return_verts=True,
+                                           body_pose=body_pose)
+            vertices = body_model_output.vertices.squeeze(0).detach().cpu().numpy()
+            plydata = PlyElement.describe(np.array([(v[0], v[1], v[2]) for v in vertices],
+                                                   dtype=[('x', 'f4'), ('y', 'f4'),('z', 'f4')]), 'vertices')
+            plydata = PlyData([plydata], text=False, byte_order='<')
+            plydata.write(os.path.join(result_folder, 'vertices.ply'))

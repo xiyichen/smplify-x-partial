@@ -108,5 +108,4 @@ num_expression_coeffs: 50
 regression_prior: PIXIE
 use_gender_classifier: True
 use_camera_prior: True
-summary_folder: "summaries"
-summary_steps: 10
+save_vertices: True
