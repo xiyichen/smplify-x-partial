@@ -45,59 +45,60 @@ maxiters: 30
 interactive: True
 visualize: True
 # Relative change in loss value
+# Relative change in loss value
 body_pose_prior_weights:
-   - 3
-   - 2
-   - 1
-   - 0.5
-   - 0.5
+    - 100
+    - 50
+    - 20
+    - 10
+    - 7.5
 coll_loss_weights:
-   - 0.0
-   - 0.0
-   - 0.0
-   - 0.01
-   - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.01
+    - 1.0
 shape_weights:
-   - 150
-   - 75
-   - 50
-   - 20
-   - 10
+    - 150
+    - 75
+    - 50
+    - 20
+    - 10
 expr_weights:
-   - 150
-   - 75
-   - 50
-   - 20
-   - 10
+    - 1.0e2
+    - 5.0e1
+    - 1.0e1
+    - 0.5e1
+    - 0.5e1
 hand_pose_prior_weights:
-   - 50
-   - 50
-   - 10
-   - 4.78
-   - 4.78
+    - 4.04e2
+    - 4.04e2
+    - 57.4
+    - 4.78
+    - 4.78
 jaw_pose_prior_weights:
-   # First phase
-   - 574,5740,5740
-   # Second phase
-   - 47.8,478,478
-   # Third phase
-   - 47.8,478,478
-   # Fourth phase
-   - 47.8,478,478
-   # Fifth phase
-   - 47.8,478,478
+    # First phase
+    - 4.04e03,4.04e04,4.04e04
+    # Second phase
+    - 4.04e03,4.04e04,4.04e04
+    # Third phase
+    - 574,5740,5740
+    # Fourth phase
+    - 47.8,478,478
+    # Fifth phase
+    - 47.8,478,478
 hand_joints_weights:
-   - 0.1
-   - 0.2
-   - 0.5
-   - 1.0
-   - 2.0
+    - 0
+    - 0.1
+    - 0.3
+    - 0.5
+    - 2.0
 face_joints_weights:
-   - 0.1
-   - 0.2
-   - 0.5
-   - 1.0
-   - 2.0
+    - 0
+    - 0.1
+    - 0.3
+    - 0.5
+    - 2.0
 use_face_contour: True
 init_joints_idxs:
     [15, 16, 2, 5, 3, 6, 9, 8, 12]

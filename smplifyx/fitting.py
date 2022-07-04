@@ -142,7 +142,7 @@ class FittingMonitor(object):
             np.array(vertex_color).reshape(1, 3),
             [batch_size, 1])
 
-    def run_fitting(self, optimizer, closure, params, body_model,
+    def run_fitting(self, optimizer, closure, params, body_model, stage,
                     use_vposer=True, pose_embedding=None, vposer=None,
                     **kwargs):
         ''' Helper function for running an optimization process
@@ -170,7 +170,7 @@ class FittingMonitor(object):
         append_wrists = self.model_type == 'smpl' and use_vposer
         prev_loss = None
         for n in range(self.maxiters):
-            loss = optimizer.step(closure)
+            loss = optimizer.step(lambda: closure(stage=stage))
 
             if torch.isnan(loss).sum() > 0:
                 print('NaN loss value, stopping!')
@@ -224,7 +224,7 @@ class FittingMonitor(object):
         faces_tensor = body_model.faces_tensor.view(-1)
         append_wrists = self.model_type == 'smpl' and use_vposer
 
-        def fitting_func(backward=True):
+        def fitting_func(stage=0, backward=True):
             if backward:
                 optimizer.zero_grad()
 
@@ -248,6 +248,7 @@ class FittingMonitor(object):
                               joint_weights=joint_weights,
                               pose_embedding=pose_embedding,
                               use_vposer=use_vposer,
+                              stage=stage,
                               **kwargs)
 
             if backward:
@@ -298,6 +299,7 @@ class SMPLifyLoss(nn.Module):
                  expr_prior_weight=0.0, jaw_prior_weight=0.0,
                  coll_loss_weight=0.0,
                  reduction='sum',
+                 regression_pose=None,
                  **kwargs):
 
         super(SMPLifyLoss, self).__init__()
@@ -347,6 +349,7 @@ class SMPLifyLoss(nn.Module):
         if self.interpenetration:
             self.register_buffer('coll_loss_weight',
                                  torch.tensor(coll_loss_weight, dtype=dtype))
+        self.regression_pose = regression_pose
 
     def reset_loss_weights(self, loss_weight_dict):
         for key in loss_weight_dict:
@@ -361,7 +364,7 @@ class SMPLifyLoss(nn.Module):
                 setattr(self, key, weight_tensor)
 
     def forward(self, body_model_output, camera, gt_joints, joints_conf,
-                body_model_faces, joint_weights,
+                body_model_faces, joint_weights, stage,
                 use_vposer=False, pose_embedding=None,
                 **kwargs):
         projected_joints = camera(body_model_output.joints)
@@ -378,8 +381,12 @@ class SMPLifyLoss(nn.Module):
 
         # Calculate the loss from the Pose prior
         if use_vposer:
-            pprior_loss = (pose_embedding.pow(2).sum() *
-                           self.body_pose_weight ** 2)
+            if self.regression_pose is None or stage <= 3:
+                pprior_loss = (pose_embedding.pow(2).sum() *
+                               self.body_pose_weight ** 2)
+            else:
+                pprior_loss = ((pose_embedding - self.regression_pose).pow(2).sum() *
+                               self.body_pose_weight ** 2)
         else:
             pprior_loss = torch.sum(self.body_pose_prior(
                 body_model_output.body_pose,
@@ -452,7 +459,7 @@ class SMPLifyCameraInitLoss(nn.Module):
     def __init__(self, init_joints_idxs, trans_estimation=None,
                  reduction='sum',
                  data_weight=1.0,
-                 depth_loss_weight=1e2, dtype=torch.float32,
+                 depth_loss_weight=1e2, dtype=torch.float32, stage=0, joints_conf=None,
                  **kwargs):
         super(SMPLifyCameraInitLoss, self).__init__()
         self.dtype = dtype
@@ -471,6 +478,7 @@ class SMPLifyCameraInitLoss(nn.Module):
             utils.to_tensor(init_joints_idxs, dtype=torch.long))
         self.register_buffer('depth_loss_weight',
                              torch.tensor(depth_loss_weight, dtype=dtype))
+        self.joints_conf = joints_conf
 
     def reset_loss_weights(self, loss_weight_dict):
         for key in loss_weight_dict:
@@ -490,6 +498,7 @@ class SMPLifyCameraInitLoss(nn.Module):
             torch.index_select(gt_joints, 1, self.init_joints_idxs) -
             torch.index_select(projected_joints, 1, self.init_joints_idxs),
             2)
+        joints_conf = torch.index_select(self.joints_conf, 1, self.init_joints_idxs).unsqueeze(2)
         joint_loss = torch.sum(joint_error) * self.data_weight ** 2
 
         depth_loss = 0.0

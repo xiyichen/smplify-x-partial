@@ -437,6 +437,7 @@ def fit_single_frame(img,
                                search_tree=search_tree,
                                tri_filtering_module=filter_faces,
                                dtype=dtype,
+                               regression_pose=pose_embedding_init,
                                **kwargs)
     loss = loss.to(device=device)
 
@@ -466,7 +467,8 @@ def fit_single_frame(img,
         camera.rotation.requires_grad = True
         body_model.global_orient.requires_grad = True
 
-        camera_opt_params = [camera.translation, body_model.global_orient]
+        # camera_opt_params = [camera.translation, body_model.global_orient]
+        camera_opt_params = [camera.translation]
 
         camera_optimizer, camera_create_graph = optim_factory.create_optimizer(
             camera_opt_params,
@@ -486,7 +488,7 @@ def fit_single_frame(img,
         camera_init_start = time.time()
         cam_init_loss_val = monitor.run_fitting(camera_optimizer,
                                                 fit_camera,
-                                                camera_opt_params, body_model,
+                                                camera_opt_params, body_model, stage=0,
                                                 use_vposer=use_vposer,
                                                 pose_embedding=pose_embedding,
                                                 vposer=vposer)
@@ -562,8 +564,13 @@ def fit_single_frame(img,
                         pose_embedding[:, i] = pose_embedding_init[:, i]
 
             for opt_idx, curr_weights in enumerate(tqdm(opt_weights, desc='Stage')):
-
-                body_params = list(body_model.parameters())
+                if opt_idx <= 3:
+                    body_params = []
+                    for (k, v) in list(body_model.named_parameters()):
+                        if k != 'global_orient':
+                            body_params.append(v)
+                else:
+                    body_params = list(body_model.parameters())
 
                 final_params = list(
                     filter(lambda x: x.requires_grad, body_params))
@@ -602,7 +609,7 @@ def fit_single_frame(img,
                 final_loss_val = monitor.run_fitting(
                     body_optimizer,
                     closure, final_params,
-                    body_model,
+                    body_model, opt_idx,
                     pose_embedding=pose_embedding, vposer=vposer,
                     use_vposer=use_vposer)
 
@@ -613,6 +620,19 @@ def fit_single_frame(img,
                     if interactive:
                         tqdm.write('Stage {:03d} done after {:.4f} seconds'.format(
                             opt_idx, elapsed))
+
+                # save vertices to ply
+                if kwargs.get('save_vertices') and opt_idx >= 3:
+                    body_pose = vposer.decode(pose_embedding, output_type='aa').view(1,
+                                                                                     -1) if use_vposer else None
+                    body_model_output = body_model(return_verts=True,
+                                                   body_pose=body_pose)
+                    vertices = body_model_output.vertices.squeeze(0).detach().cpu().numpy()
+                    plydata = PlyElement.describe(np.array([(v[0], v[1], v[2]) for v in vertices],
+                                                           dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')]),
+                                                  'vertices')
+                    plydata = PlyData([plydata], text=False, byte_order='<')
+                    plydata.write(os.path.join(result_folder, 'vertices_stage_{:03d}.ply'.format(opt_idx)))
 
                 if visualize:
                     with torch.no_grad():
@@ -661,14 +681,3 @@ def fit_single_frame(img,
             else:
                 min_idx = 0
             pickle.dump(results[min_idx]['result'], result_file, protocol=2)
-
-        # save vertices to ply
-        if kwargs.get('save_vertices'):
-            body_pose = vposer.decode(pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
-            body_model_output = body_model(return_verts=True,
-                                           body_pose=body_pose)
-            vertices = body_model_output.vertices.squeeze(0).detach().cpu().numpy()
-            plydata = PlyElement.describe(np.array([(v[0], v[1], v[2]) for v in vertices],
-                                                   dtype=[('x', 'f4'), ('y', 'f4'),('z', 'f4')]), 'vertices')
-            plydata = PlyData([plydata], text=False, byte_order='<')
-            plydata.write(os.path.join(result_folder, 'vertices.ply'))
