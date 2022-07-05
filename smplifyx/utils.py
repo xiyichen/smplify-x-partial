@@ -32,6 +32,7 @@ import trimesh
 from human_body_prior.tools.visualization_tools import render_smpl_params, imagearray2file
 from human_body_prior.body_model.body_model import BodyModel
 import pyrender
+from PIL import ImageDraw
 
 def to_tensor(tensor, dtype=torch.float32):
     if torch.Tensor == type(tensor):
@@ -419,7 +420,7 @@ def _compute_euler_from_matrix(dcm, seq='xyz', extrinsic=False):
     return angles
 
 def optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
-                               focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path, use_cuda, mesh_fn, **kwargs):
+                               focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path, use_cuda, mesh_fn, kpts, kpts_gt, **kwargs):
     use_vposer = kwargs.get('use_vposer', True)
     with torch.no_grad():
         body_pose = vposer.decode(pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
@@ -452,6 +453,14 @@ def optimization_visualization(img, smplx_path, vposer, pose_embedding, body_mod
 
             output_img = render_mesh(img, out_mesh, camera_center, camera_transl, focal_length, W, H)
             output_img = pil_img.fromarray(output_img)
+
+            draw = ImageDraw.Draw(output_img)
+            for x, y in kpts_gt[0]:
+                draw.ellipse((x, y, x + 10, y + 10), fill=(255, 0, 0), outline=(0, 0, 0))
+            fills = [(255, 192, 103), (0, 0, 255), (0, 255, 0), (255, 255, 255), (255, 255, 0)]
+            for idx, (x, y) in enumerate(kpts[0]):
+                draw.ellipse((x, y, x + 10, y + 10), fill=fills[idx], outline=(0, 0, 0))
+            
 
             output_img.save(out_img_save_path)
 

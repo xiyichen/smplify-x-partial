@@ -275,6 +275,11 @@ def fit_single_frame(img,
     for idx in init_joints_idxs:
         if gt_joints[0, idx, 0] != 0 and gt_joints[0, idx, 1] != 0:
             init_joints_idxs_trimmed.append(idx)
+    
+    indices_5kpts_trimmed = []
+    for idx in indices_5kpts:
+        if gt_joints[0, idx, 0] != 0 and gt_joints[0, idx, 1] != 0:
+            indices_5kpts_trimmed.append(idx)
 
     init_joints_idxs = init_joints_idxs_trimmed
 
@@ -388,18 +393,19 @@ def fit_single_frame(img,
         with torch.no_grad():
             out_img_save_path = os.path.join(curr_img_folder, '{}_init_cam.png'.format(img_name))
             vposer_rendered_img_save_path = None
-            optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
-                                       focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
-                                       use_cuda, mesh_fn, **kwargs)
-
-            print("saved rendered mesh and vposer for step 1 to %s" % out_img_save_path)
-
+            
             body_pose = vposer.decode(pose_embedding_init, output_type='aa').view(1, -1) if use_vposer else None
             body_model_output = body_model(return_verts=True,
                                            body_pose=body_pose)
             projected_joints = camera(body_model_output.joints)
-            projected_joints_5kpts_arr = projected_joints[:, indices_5kpts, :]
-            gt_joints_5kpts_arr = gt_joints[:, indices_5kpts]
+            projected_joints_5kpts_arr = projected_joints[:, indices_5kpts_trimmed, :]
+            gt_joints_5kpts_arr = gt_joints[:, indices_5kpts_trimmed]
+            optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
+                                       focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
+                                       use_cuda, mesh_fn, projected_joints_5kpts_arr, gt_joints_5kpts_arr, **kwargs)
+
+            print("saved rendered mesh and vposer for step 1 to %s" % out_img_save_path)
+
             from PIL import Image, ImageDraw
             im = Image.open(osp.join(kwargs.get('data_folder'), 'images', img_name + '.jpg'))
             draw = ImageDraw.Draw(im)
@@ -508,18 +514,19 @@ def fit_single_frame(img,
             with torch.no_grad():
                 out_img_save_path = os.path.join(curr_img_folder, '{}_step1.png'.format(img_name))
                 vposer_rendered_img_save_path = os.path.join(curr_img_folder, '{}_vposer_step1.png'.format(img_name))
-                optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
-                                           focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
-                                           use_cuda, mesh_fn, **kwargs)
-
-                print("saved rendered mesh and vposer for step 1 to %s" % out_img_save_path)
-
+               
                 body_pose = vposer.decode(pose_embedding_init, output_type='aa').view(1, -1) if use_vposer else None
                 body_model_output = body_model(return_verts=True,
                                                body_pose=body_pose)
                 projected_joints = camera(body_model_output.joints)
-                projected_joints_5kpts_arr = projected_joints[:, indices_5kpts, :]
-                gt_joints_5kpts_arr = gt_joints[:, indices_5kpts]
+                projected_joints_5kpts_arr = projected_joints[:, indices_5kpts_trimmed, :]
+                gt_joints_5kpts_arr = gt_joints[:, indices_5kpts_trimmed]
+                optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
+                                           focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
+                                           use_cuda, mesh_fn, projected_joints_5kpts_arr, gt_joints_5kpts_arr, **kwargs)
+
+                print("saved rendered mesh and vposer for step 1 to %s" % out_img_save_path)
+
                 from PIL import Image, ImageDraw
                 im = Image.open(osp.join(kwargs.get('data_folder'), 'images', img_name + '.jpg'))
                 draw = ImageDraw.Draw(im)
@@ -620,13 +627,17 @@ def fit_single_frame(img,
                     if interactive:
                         tqdm.write('Stage {:03d} done after {:.4f} seconds'.format(
                             opt_idx, elapsed))
+                
+                body_pose = vposer.decode(pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
+                body_model_output = body_model(return_verts=True,
+                                              body_pose=body_pose)
+                projected_joints = camera(body_model_output.joints)
+                projected_joints_5kpts_arr = projected_joints[:, indices_5kpts_trimmed, :]
+                gt_joints_5kpts_arr = gt_joints[:, indices_5kpts_trimmed]
+                print('Distance of 5 keypoints for stage {:03d}: {}'.format(opt_idx, (((projected_joints_5kpts_arr - gt_joints_5kpts_arr)**2).sum(dim=-1)**0.5).sum()))
 
                 # save vertices to ply
                 if kwargs.get('save_vertices') and opt_idx >= 3:
-                    body_pose = vposer.decode(pose_embedding, output_type='aa').view(1,
-                                                                                     -1) if use_vposer else None
-                    body_model_output = body_model(return_verts=True,
-                                                   body_pose=body_pose)
                     vertices = body_model_output.vertices.squeeze(0).detach().cpu().numpy()
                     plydata = PlyElement.describe(np.array([(v[0], v[1], v[2]) for v in vertices],
                                                            dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')]),
@@ -641,7 +652,7 @@ def fit_single_frame(img,
                                                                      '{}_vposer_{:02d}.png'.format(img_name, opt_idx))
                         optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
                                                    focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
-                                                   use_cuda, mesh_fn, **kwargs)
+                                                   use_cuda, mesh_fn, projected_joints_5kpts_arr, gt_joints_5kpts_arr, **kwargs)
                         print("saved rendered mesh and vposer for current stage to %s" % out_img_save_path)
 
             if interactive:
