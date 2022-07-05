@@ -24,6 +24,7 @@ from typing import Dict
 
 import numpy as np
 
+import open3d as o3d
 import os
 import torch
 import torch.nn as nn
@@ -35,7 +36,6 @@ from human_body_prior.tools.visualization_tools import render_smpl_params, image
 from human_body_prior.body_model.body_model import BodyModel
 import pyrender
 from PIL import ImageDraw
-import open3d as o3d
 from typing import Tuple
 from typing import NewType, List, Union
 import numpy as np

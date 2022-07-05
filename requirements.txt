@@ -11,3 +11,4 @@ pyrender
 trimesh
 joblib
 plyfile
+open3d

@@ -24,6 +24,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import os.path as osp
+from utils import JointMapper
 
 import time
 import yaml
@@ -31,7 +32,6 @@ import torch
 
 import smplx
 
-from utils import JointMapper
 from cmd_parser import parse_config
 from data_parser import create_dataset
 from fit_single_frame import fit_single_frame
@@ -195,6 +195,9 @@ def main(**args):
     # A weight for every joint of the model
     joint_weights = dataset_obj.get_joint_weights().to(device=device,
                                                        dtype=dtype)
+    # joint_weights[3] = 2
+    # joint_weights[6] = 2
+    # joint_weights[[2, 5, 8, 15, 16]] = 3
     # Add a fake batch dimension for broadcasting
     joint_weights.unsqueeze_(dim=0)
 
