@@ -19,6 +19,8 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+from collections import defaultdict
+from typing import Dict
 
 import numpy as np
 
@@ -33,6 +35,20 @@ from human_body_prior.tools.visualization_tools import render_smpl_params, image
 from human_body_prior.body_model.body_model import BodyModel
 import pyrender
 from PIL import ImageDraw
+import open3d as o3d
+from typing import Tuple
+from typing import NewType, List, Union
+import numpy as np
+import torch
+
+
+__all__ = [
+    'Tensor',
+    'Array',
+]
+
+Tensor = NewType('Tensor', torch.Tensor)
+Array = NewType('Array', np.ndarray)
 
 def to_tensor(tensor, dtype=torch.float32):
     if torch.Tensor == type(tensor):
@@ -460,7 +476,6 @@ def optimization_visualization(img, smplx_path, vposer, pose_embedding, body_mod
             fills = [(255, 192, 103), (0, 0, 255), (0, 255, 0), (255, 255, 255), (255, 255, 0)]
             for idx, (x, y) in enumerate(kpts[0]):
                 draw.ellipse((x, y, x + 10, y + 10), fill=fills[idx], outline=(0, 0, 0))
-            
 
             output_img.save(out_img_save_path)
 
@@ -519,3 +534,300 @@ def render_mesh(img, mesh_trimesh, camera_center, camera_transl, focal_length, i
     output_img = (output_img * 255).astype(np.uint8)
 
     return output_img
+
+class ProcrustesAlignment(object):
+    def __init__(self):
+        super(ProcrustesAlignment, self).__init__()
+
+    def __repr__(self):
+        return 'ProcrustesAlignment'
+
+    def __call__(self, S1, S2):
+        '''
+        Computes a similarity transform (sR, t) that takes
+        a set of 3D points S1 (3 x N) closest to a set of 3D points S2,
+        where R is an 3x3 rotation matrix, t 3x1 translation, s scale.
+        i.e. solves the orthogonal Procrustes problem.
+        '''
+        transposed = False
+        if S1.shape[0] != 3 and S1.shape[0] != 2:
+            S1 = S1.T
+            S2 = S2.T
+            transposed = True
+        assert(S2.shape[1] == S1.shape[1])
+
+        # 1. Remove mean.
+        mu1 = S1.mean(axis=1, keepdims=True)
+        mu2 = S2.mean(axis=1, keepdims=True)
+        X1 = S1 - mu1
+        X2 = S2 - mu2
+
+        # 2. Compute variance of X1 used for scale.
+        var1 = np.sum(X1**2)
+
+        # 3. The outer product of X1 and X2.
+        K = X1.dot(X2.T)
+
+        # 4. Solution that Maximizes trace(R'K) is R=U*V', where U, V are
+        # singular vectors of K.
+        U, s, Vh = np.linalg.svd(K)
+        V = Vh.T
+        # Construct Z that fixes the orientation of R to get det(R)=1.
+        Z = np.eye(U.shape[0])
+        Z[-1, -1] *= np.sign(np.linalg.det(U.dot(V.T)))
+        # Construct R.
+        R = V.dot(Z.dot(U.T))
+
+        # 5. Recover scale.
+        scale = np.trace(R.dot(K)) / var1
+
+        # 6. Recover translation.
+        t = mu2 - scale * (R.dot(mu1))
+
+        # 7. Error:
+        S1_hat = scale * R.dot(S1) + t
+
+        if transposed:
+            S1_hat = S1_hat.T
+            
+        return S1_hat
+
+def mpjpe(input_joints, target_joints):
+    ''' Calculate mean per-joint point error
+    Parameters
+    ----------
+        input_joints: numpy.array, Jx3
+            The joints predicted by the model
+        target_joints: numpy.array, Jx3
+            The ground truth joints
+    Returns
+    -------
+        numpy.array, BxJ
+            The per joint point error for each element in the batch
+    '''
+
+    return np.sqrt(np.power(input_joints - target_joints, 2).sum(axis=-1))
+
+def vertex_to_vertex_error(input_vertices, target_vertices):
+    return np.sqrt(np.power(input_vertices - target_vertices, 2).sum(axis=-1))
+
+def np2o3d_pcl(x: np.ndarray) -> o3d.geometry.PointCloud:
+    pcl = o3d.geometry.PointCloud()
+    pcl.points = o3d.utility.Vector3dVector(x)
+
+    return pcl
+
+def point_fscore(
+        pred: torch.Tensor,
+        gt: torch.Tensor,
+        thresh: float) -> Dict[str, float]:
+    if torch.is_tensor(pred):
+        pred = pred.detach().cpu().numpy()
+    if torch.is_tensor(gt):
+        gt = gt.detach().cpu().numpy()
+
+    pred_pcl = np2o3d_pcl(pred)
+    gt_pcl = np2o3d_pcl(gt)
+
+    gt_to_pred = np.asarray(gt_pcl.compute_point_cloud_distance(pred_pcl))
+    pred_to_gt = np.asarray(pred_pcl.compute_point_cloud_distance(gt_pcl))
+
+    recall = (pred_to_gt < thresh).sum() / len(pred_to_gt)
+    precision = (gt_to_pred < thresh).sum() / len(gt_to_pred)
+    if recall + precision > 0.0:
+        fscore = 2 * recall * precision / (recall + precision)
+    else:
+        fscore = 0.0
+
+    return {
+        'fscore': fscore,
+        'precision': precision,
+        'recall': recall,
+    }
+
+class PelvisAlignment(object):
+    def __init__(self, hips_idxs=None):
+        super(PelvisAlignment, self).__init__()
+        if hips_idxs is None:
+            hips_idxs = [2, 3]
+        self.hips_idxs = hips_idxs
+
+    def align_by_pelvis(self, joints):
+        pelvis = joints[self.hips_idxs, :].mean(axis=0, keepdims=True)
+        return {'joints': joints - pelvis, 'pelvis': pelvis}
+
+    def __call__(self, gt, est):
+        gt_out = self.align_by_pelvis(gt)
+        est_out = self.align_by_pelvis(est)
+
+        aligned_gt_joints = gt_out['joints']
+        aligned_est_joints = est_out['joints']
+
+        return aligned_gt_joints, aligned_est_joints
+
+class PelvisAlignmentMPJPE(PelvisAlignment):
+    def __init__(self, fscore_thresholds=None):
+        super(PelvisAlignmentMPJPE, self).__init__()
+        self.fscore_thresholds = fscore_thresholds
+
+    def __repr__(self):
+        msg = [super(PelvisAlignmentMPJPE).__repr__()]
+        if self.fscore_thresholds is not None:
+            msg.append(
+                'F-Score thresholds: ' +
+                f'(mm), '.join(map(lambda x: f'{x * 1000}',
+                                   self.fscore_thresholds))
+            )
+        return '\n'.join(msg)
+
+    def __call__(self, est_points, gt_points):
+        aligned_gt_points, aligned_est_points = super(
+            PelvisAlignmentMPJPE, self).__call__(gt_points, est_points)
+
+        fscore = {}
+        if self.fscore_thresholds is not None:
+            for thresh in self.fscore_thresholds:
+                fscore[thresh] = point_fscore(
+                    aligned_est_points, gt_points, thresh)
+        return {
+            'point': mpjpe(aligned_est_points, aligned_gt_points),
+            'fscore': fscore
+        }
+
+class ProcrustesAlignmentMPJPE(ProcrustesAlignment):
+    def __init__(self, fscore_thresholds=None):
+        super(ProcrustesAlignmentMPJPE, self).__init__()
+        self.fscore_thresholds = fscore_thresholds
+
+    def __repr__(self):
+        msg = [super(ProcrustesAlignment).__repr__()]
+        if self.fscore_thresholds is not None:
+            msg.append(
+                'F-Score thresholds: ' +
+                f'(mm), '.join(map(lambda x: f'{x * 1000}',
+                                   self.fscore_thresholds))
+            )
+        return '\n'.join(msg)
+
+    def __call__(self, est_points, gt_points):
+        aligned_est_points = super(ProcrustesAlignmentMPJPE, self).__call__(
+            est_points, gt_points)
+
+        fscore = {}
+        if self.fscore_thresholds is not None:
+            for thresh in self.fscore_thresholds:
+                fscore[thresh] = point_fscore(
+                    aligned_est_points, gt_points, thresh)
+        return {
+            'point': mpjpe(aligned_est_points, gt_points),
+            'fscore': fscore
+        }
+
+
+class ScaleAlignment(object):
+    def __init__(self):
+        super(ScaleAlignment, self).__init__()
+
+    def __repr__(self):
+        return 'ScaleAlignment'
+
+    def __call__(self, S1, S2):
+        '''
+        Computes a similarity transform (sR, t) that takes
+        a set of 3D points S1 (3 x N) closest to a set of 3D points S2,
+        where R is an 3x3 rotation matrix, t 3x1 translation, s scale.
+        i.e. solves the orthogonal Procrutes problem.
+        '''
+        transposed = False
+        if S1.shape[0] != 3 and S1.shape[0] != 2:
+            S1 = S1.T
+            S2 = S2.T
+            transposed = True
+        assert(S2.shape[1] == S1.shape[1])
+
+        # 1. Remove mean.
+        mu1 = S1.mean(axis=1, keepdims=True)
+        mu2 = S2.mean(axis=1, keepdims=True)
+        X1 = S1 - mu1
+        X2 = S2 - mu2
+
+        # 2. Compute variance of X1 used for scale.
+        var1 = np.sum(X1**2)
+        var2 = np.sum(X2**2)
+
+        # 5. Recover scale.
+        scale = np.sqrt(var2 / var1)
+
+        # 6. Recover translation.
+        t = mu2 - scale * (mu1)
+
+        # 7. Error:
+        S1_hat = scale * S1 + t
+
+        if transposed:
+            S1_hat = S1_hat.T
+
+        return S1_hat
+
+class ProcrustesAlignmentMPJPE(ProcrustesAlignment):
+    def __init__(self, fscore_thresholds=None):
+        super(ProcrustesAlignmentMPJPE, self).__init__()
+        self.fscore_thresholds = fscore_thresholds
+
+    def __repr__(self):
+        msg = [super(ProcrustesAlignment).__repr__()]
+        if self.fscore_thresholds is not None:
+            msg.append(
+                'F-Score thresholds: ' +
+                f'(mm), '.join(map(lambda x: f'{x * 1000}',
+                                   self.fscore_thresholds))
+            )
+        return '\n'.join(msg)
+
+    def __call__(self, est_points, gt_points):
+        aligned_est_points = super(ProcrustesAlignmentMPJPE, self).__call__(
+            est_points, gt_points)
+
+        fscore = {}
+        if self.fscore_thresholds is not None:
+            for thresh in self.fscore_thresholds:
+                fscore[thresh] = point_fscore(
+                    aligned_est_points, gt_points, thresh)
+        return {
+            'point': vertex_to_vertex_error(aligned_est_points, gt_points),
+            'fscore': fscore
+        }
+
+
+def get_transform(
+    center: Array, scale: float,
+    res: Tuple[int],
+    rot: float = 0
+) -> Array:
+    """
+    General image processing functions
+    """
+    # Generate transformation matrix
+    h = 200 * scale
+    t = np.zeros((3, 3), dtype=np.float32)
+    t[0, 0] = float(res[1]) / h
+    t[1, 1] = float(res[0]) / h
+    t[0, 2] = res[1] * (-float(center[0]) / h + .5)
+    t[1, 2] = res[0] * (-float(center[1]) / h + .5)
+    t[2, 2] = 1
+    if not rot == 0:
+        rot = -rot  # To match direction of rotation from cropping
+        rot_mat = np.zeros((3, 3), dtype=np.float32)
+        rot_rad = rot * np.pi / 180
+        sn, cs = np.sin(rot_rad), np.cos(rot_rad)
+        rot_mat[0, :2] = [cs, -sn]
+        rot_mat[1, :2] = [sn, cs]
+        rot_mat[2, 2] = 1
+        # Need to rotate around center
+        t_mat = np.eye(3)
+        t_mat[0, 2] = -res[1] / 2
+        t_mat[1, 2] = -res[0] / 2
+        t_inv = t_mat.copy()
+        t_inv[:2, 2] *= -1
+        t = np.dot(t_inv, np.dot(rot_mat, np.dot(t_mat, t)))
+    return t.astype(np.float32)

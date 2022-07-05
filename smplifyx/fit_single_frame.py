@@ -19,8 +19,8 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-
 import time
+
 try:
     import cPickle as pickle
 except ImportError:
@@ -51,6 +51,7 @@ from plyfile import PlyElement, PlyData
 
 if platform == 'linux' or platform == "linux2":
     os.environ['PYOPENGL_PLATFORM'] = 'egl'
+
 
 def fit_single_frame(img,
                      keypoints,
@@ -110,7 +111,6 @@ def fit_single_frame(img,
                      smplx_path='./smplx_model/models/smplx/SMPLX_MALE.npz',
                      curr_img_folder='.',
                      **kwargs):
-
     assert batch_size == 1, 'PyTorch L-BFGS only supports batch_size == 1'
 
     img = torch.tensor(img, dtype=dtype)
@@ -129,10 +129,10 @@ def fit_single_frame(img,
         body_pose_prior_weights = [4.04 * 1e2, 4.04 * 1e2, 57.4, 4.78]
 
     msg = (
-        'Number of Body pose prior weights {}'.format(
-            len(body_pose_prior_weights)) +
-        ' does not match the number of data term weights {}'.format(
-            len(data_weights)))
+            'Number of Body pose prior weights {}'.format(
+                len(body_pose_prior_weights)) +
+            ' does not match the number of data term weights {}'.format(
+                len(data_weights)))
     assert (len(data_weights) ==
             len(body_pose_prior_weights)), msg
 
@@ -156,8 +156,8 @@ def fit_single_frame(img,
            ' number of Shape prior weights = {}')
     assert (len(shape_weights) ==
             len(body_pose_prior_weights)), msg.format(
-                len(shape_weights),
-                len(body_pose_prior_weights))
+        len(shape_weights),
+        len(body_pose_prior_weights))
 
     if use_face:
         if jaw_pose_prior_weights is None:
@@ -177,8 +177,8 @@ def fit_single_frame(img,
                ' number of Expression prior weights = {}')
         assert (len(expr_weights) ==
                 len(body_pose_prior_weights)), msg.format(
-                    len(body_pose_prior_weights),
-                    len(expr_weights))
+            len(body_pose_prior_weights),
+            len(expr_weights))
 
         if face_joints_weights is None:
             face_joints_weights = [0.0, 0.0, 0.0, 1.0]
@@ -197,7 +197,8 @@ def fit_single_frame(img,
     if regression_results:
         model_data = np.load(smplx_path, allow_pickle=True)
         regression_pose = regression_results['body_pose']
-        regression_pose = [_compute_euler_from_matrix(torch.tensor(joint_rotation, device=device)) for joint_rotation in regression_pose]
+        regression_pose = [_compute_euler_from_matrix(torch.tensor(joint_rotation, device=device)) for joint_rotation in
+                           regression_pose]
         regression_pose = torch.cat(regression_pose).reshape(1, -1)
 
     use_vposer = kwargs.get('use_vposer', True)
@@ -215,9 +216,12 @@ def fit_single_frame(img,
 
             if visualize:
                 with torch.no_grad():
-                    vposer_rendered_img_save_path = os.path.join(curr_img_folder, '{}_regression_pose.png'.format(img_name))
+                    vposer_rendered_img_save_path = os.path.join(curr_img_folder,
+                                                                 '{}_regression_pose.png'.format(img_name))
                     bm = BodyModel(smplx_path).to('cuda') if use_cuda else BodyModel(bm_path=smplx_path)
-                    vposer_rendered_img = render_smpl_params(bm, regression_pose.reshape((-1, 21, 3))).reshape(1, 1, 1, 400, 400, 3)
+                    vposer_rendered_img = render_smpl_params(bm, regression_pose.reshape((-1, 21, 3))).reshape(1, 1, 1,
+                                                                                                               400, 400,
+                                                                                                               3)
                     vposer_rendered_img = imagearray2file(vposer_rendered_img)[0]
                     vposer_rendered_img = pil_img.fromarray(vposer_rendered_img)
                     vposer_rendered_img.save(vposer_rendered_img_save_path)
@@ -275,7 +279,7 @@ def fit_single_frame(img,
     for idx in init_joints_idxs:
         if gt_joints[0, idx, 0] != 0 and gt_joints[0, idx, 1] != 0:
             init_joints_idxs_trimmed.append(idx)
-    
+
     indices_5kpts_trimmed = []
     for idx in indices_5kpts:
         if gt_joints[0, idx, 0] != 0 and gt_joints[0, idx, 1] != 0:
@@ -374,7 +378,8 @@ def fit_single_frame(img,
         cyhat = (2 * (cy - H / 2)) / (s * (b))
         tx = pred_cam[1] - cxhat
         ty = pred_cam[2] - cyhat
-        init_t = torch.tensor([[pred_cam[1], pred_cam[2], 2 * focal_length / (s * b + 1e-9)]], dtype=dtype, device=device)
+        init_t = torch.tensor([[pred_cam[1], pred_cam[2], 2 * focal_length / (s * b + 1e-9)]], dtype=dtype,
+                              device=device)
         with torch.no_grad():
             camera.translation[:] = torch.tensor(init_t.reshape(1, -1), device=device)
             camera.center[:] = torch.tensor([cx, cy], dtype=dtype, device=device)
@@ -393,7 +398,7 @@ def fit_single_frame(img,
         with torch.no_grad():
             out_img_save_path = os.path.join(curr_img_folder, '{}_init_cam.png'.format(img_name))
             vposer_rendered_img_save_path = None
-            
+
             body_pose = vposer.decode(pose_embedding_init, output_type='aa').view(1, -1) if use_vposer else None
             body_model_output = body_model(return_verts=True,
                                            body_pose=body_pose)
@@ -404,17 +409,7 @@ def fit_single_frame(img,
                                        focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
                                        use_cuda, mesh_fn, projected_joints_5kpts_arr, gt_joints_5kpts_arr, **kwargs)
 
-            print("saved rendered mesh and vposer for step 1 to %s" % out_img_save_path)
-
-            from PIL import Image, ImageDraw
-            im = Image.open(osp.join(kwargs.get('data_folder'), 'images', img_name + '.jpg'))
-            draw = ImageDraw.Draw(im)
-            for x, y in gt_joints_5kpts_arr[0]:
-                draw.ellipse((x, y, x + 10, y + 10), fill=(255, 0, 0), outline=(0, 0, 0))
-            fills = [(255, 192, 103), (0, 0, 255), (0, 255, 0), (255, 255, 255), (255, 255, 0)]
-            for idx, (x, y) in enumerate(projected_joints_5kpts_arr[0]):
-                draw.ellipse((x, y, x + 10, y + 10), fill=fills[idx], outline=(0, 0, 0))
-            im.save(os.path.join(curr_img_folder, '{}_5kpts_positions_init_cam.png'.format(img_name)))
+            print("saved rendered mesh before camera initialization to %s" % out_img_save_path)
 
     camera_loss = fitting.create_loss('camera_init',
                                       joints_conf=joints_conf,
@@ -514,7 +509,7 @@ def fit_single_frame(img,
             with torch.no_grad():
                 out_img_save_path = os.path.join(curr_img_folder, '{}_step1.png'.format(img_name))
                 vposer_rendered_img_save_path = os.path.join(curr_img_folder, '{}_vposer_step1.png'.format(img_name))
-               
+
                 body_pose = vposer.decode(pose_embedding_init, output_type='aa').view(1, -1) if use_vposer else None
                 body_model_output = body_model(return_verts=True,
                                                body_pose=body_pose)
@@ -525,17 +520,7 @@ def fit_single_frame(img,
                                            focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
                                            use_cuda, mesh_fn, projected_joints_5kpts_arr, gt_joints_5kpts_arr, **kwargs)
 
-                print("saved rendered mesh and vposer for step 1 to %s" % out_img_save_path)
-
-                from PIL import Image, ImageDraw
-                im = Image.open(osp.join(kwargs.get('data_folder'), 'images', img_name + '.jpg'))
-                draw = ImageDraw.Draw(im)
-                for x, y in gt_joints_5kpts_arr[0]:
-                    draw.ellipse((x, y, x + 10, y + 10), fill=(255, 0, 0), outline=(0, 0, 0))
-                fills = [(255, 192, 103), (0, 0, 255), (0, 255, 0), (255, 255, 255), (255, 255, 0)]
-                for idx, (x, y) in enumerate(projected_joints_5kpts_arr[0]):
-                    draw.ellipse((x, y, x + 10, y + 10), fill=fills[idx], outline=(0, 0, 0))
-                im.save(os.path.join(curr_img_folder, '{}_5kpts_positions_after_cam_opt.png'.format(img_name)))
+                print("saved rendered mesh and vposer after camera initialization to %s" % out_img_save_path)
 
         # If the 2D detections/positions of the shoulder joints are too
         # close the rotate the body by 180 degrees and also fit to that
@@ -592,7 +577,7 @@ def fit_single_frame(img,
 
                 curr_weights['data_weight'] = data_weight
                 curr_weights['bending_prior_weight'] = (
-                    3.17 * curr_weights['body_pose_weight'])
+                        3.17 * curr_weights['body_pose_weight'])
                 if use_hands:
                     joint_weights[:, 25:67] = curr_weights['hand_weight']
                 if use_face:
@@ -627,14 +612,15 @@ def fit_single_frame(img,
                     if interactive:
                         tqdm.write('Stage {:03d} done after {:.4f} seconds'.format(
                             opt_idx, elapsed))
-                
+
                 body_pose = vposer.decode(pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
                 body_model_output = body_model(return_verts=True,
-                                              body_pose=body_pose)
+                                               body_pose=body_pose)
                 projected_joints = camera(body_model_output.joints)
                 projected_joints_5kpts_arr = projected_joints[:, indices_5kpts_trimmed, :]
                 gt_joints_5kpts_arr = gt_joints[:, indices_5kpts_trimmed]
-                print('Distance of 5 keypoints for stage {:03d}: {}'.format(opt_idx, (((projected_joints_5kpts_arr - gt_joints_5kpts_arr)**2).sum(dim=-1)**0.5).sum()))
+                print('Distance of 5 keypoints for stage {:03d}: {}'.format(opt_idx, (
+                            ((projected_joints_5kpts_arr - gt_joints_5kpts_arr) ** 2).sum(dim=-1) ** 0.5).sum()))
 
                 # save vertices to ply
                 if kwargs.get('save_vertices') and opt_idx >= 3:
@@ -652,7 +638,8 @@ def fit_single_frame(img,
                                                                      '{}_vposer_{:02d}.png'.format(img_name, opt_idx))
                         optimization_visualization(img, smplx_path, vposer, pose_embedding, body_model, camera,
                                                    focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path,
-                                                   use_cuda, mesh_fn, projected_joints_5kpts_arr, gt_joints_5kpts_arr, **kwargs)
+                                                   use_cuda, mesh_fn, projected_joints_5kpts_arr, gt_joints_5kpts_arr,
+                                                   **kwargs)
                         print("saved rendered mesh and vposer for current stage to %s" % out_img_save_path)
 
             if interactive:
