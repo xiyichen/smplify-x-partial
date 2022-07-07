@@ -21,6 +21,8 @@ from __future__ import division
 
 import time
 
+import trimesh
+
 try:
     import cPickle as pickle
 except ImportError:
@@ -45,7 +47,7 @@ import PIL.Image as pil_img
 from human_body_prior.tools.model_loader import load_vposer
 from human_body_prior.tools.visualization_tools import render_smpl_params, imagearray2file
 from human_body_prior.body_model.body_model import BodyModel
-from utils import _compute_euler_from_matrix, optimization_visualization
+from utils import _compute_euler_from_matrix, optimization_visualization, render_mesh
 from sys import platform
 from plyfile import PlyElement, PlyData
 
@@ -237,20 +239,19 @@ def fit_single_frame(img,
 
         jaw_pose = _compute_euler_from_matrix(torch.tensor(regression_results['jaw_pose'], device=device))
 
-        left_hand_pose = regression_results['left_hand_pose']
-        left_hand_pose = [_compute_euler_from_matrix(torch.tensor(joint_rotation, device=device)) for joint_rotation in
-                          left_hand_pose]
-        left_hand_pose = torch.cat(left_hand_pose).reshape(-1, 1)
+        left_hand_pose_full = regression_results['left_hand_pose']
+        left_hand_pose_full = [_compute_euler_from_matrix(torch.tensor(joint_rotation, device=device)) for joint_rotation in
+                          left_hand_pose_full]
+        left_hand_pose_full = torch.cat(left_hand_pose_full).reshape(-1, 1)
         num_pca_comps = kwargs.get('num_pca_comps')
         left_hand_components = torch.tensor(model_data['hands_componentsl'][:num_pca_comps], device=device)
-        left_hand_pose = (left_hand_components @ left_hand_pose).reshape(1, -1)
-
-        right_hand_pose = regression_results['right_hand_pose']
-        right_hand_pose = [_compute_euler_from_matrix(torch.tensor(joint_rotation, device=device)) for joint_rotation in
-                           right_hand_pose]
-        right_hand_pose = torch.cat(right_hand_pose).reshape(-1, 1)
+        left_hand_pose = (left_hand_components @ left_hand_pose_full).reshape(1, -1)
+        right_hand_pose_full = regression_results['right_hand_pose']
+        right_hand_pose_full = [_compute_euler_from_matrix(torch.tensor(joint_rotation, device=device)) for joint_rotation in
+                           right_hand_pose_full]
+        right_hand_pose_full = torch.cat(right_hand_pose_full).reshape(-1, 1)
         right_hand_components = torch.tensor(model_data['hands_componentsr'][:num_pca_comps], device=device)
-        right_hand_pose = (right_hand_components @ right_hand_pose).reshape(1, -1)
+        right_hand_pose = (right_hand_components @ right_hand_pose_full).reshape(1, -1)
 
         shape_params = regression_results['shape']
         exp_params = regression_results['exp']
@@ -271,9 +272,12 @@ def fit_single_frame(img,
     if use_joints_conf:
         joints_conf = joints_conf.to(device=device, dtype=dtype)
 
-    indices_low_conf = [i for i in range(len(joints_conf[0])) if joints_conf[0][i] < 0.2]
+    indices_low_conf = [i for i in range(len(joints_conf[0])) if joints_conf[0][i] < 0.65]
     joint_weights[:, indices_low_conf] = 0
-    indices_5kpts = [2, 5, 8, 15, 16]
+    if kwargs.get('dataset').lower() == 'openpose':
+        indices_5kpts = [2, 5, 8, 15, 16]
+    elif kwargs.get('dataset').lower() == 'mmpose':
+        indices_5kpts = [5, 6, 19, 1, 2]
 
     init_joints_idxs_trimmed = []
     for idx in init_joints_idxs:
@@ -383,6 +387,38 @@ def fit_single_frame(img,
         with torch.no_grad():
             camera.translation[:] = torch.tensor(init_t.reshape(1, -1), device=device)
             camera.center[:] = torch.tensor([cx, cy], dtype=dtype, device=device)
+        # use_pca = body_model.use_pca
+        # body_model.use_pca = False
+        #
+        # pixie_body_model_output = body_model(
+        #     shape_params=torch.tensor(regression_results['shape'], device=device).unsqueeze(0),
+        #     expression_params=torch.tensor(regression_results['exp'], device=device).unsqueeze(0),
+        #     global_pose=torch.tensor(regression_results['global_pose'], device=device).unsqueeze(0),
+        #     body_pose=torch.tensor(regression_results['body_pose'], device=device).unsqueeze(0),
+        #     jaw_pose=torch.tensor(regression_results['jaw_pose'], device=device).unsqueeze(0),
+        #     left_hand_pose=torch.tensor(regression_results['left_hand_pose'], device=device).unsqueeze(0),
+        #     right_hand_pose=torch.tensor(regression_results['right_hand_pose'], device=device).unsqueeze(0),
+        #     pose2rot=False)
+        # body_model.use_pca = use_pca
+        # pixie_vertices = pixie_body_model_output.vertices.detach().cpu().numpy().squeeze()
+        # out_mesh = trimesh.Trimesh(pixie_vertices, body_model.faces, process=False)
+        # rot = trimesh.transformations.rotation_matrix(
+        #     np.radians(180), [1, 0, 0])
+        # out_mesh.apply_transform(rot)
+        # out_mesh.export(mesh_fn)
+        # camera_center = camera.center.detach().cpu().numpy().squeeze().copy()
+        # camera_transl = camera.translation.detach().cpu().numpy().squeeze().copy()
+        # camera_transl[0] *= -1.0
+        #
+        # output_img = render_mesh(img, out_mesh, camera_center, camera_transl, focal_length, W, H)
+        # output_img = pil_img.fromarray(output_img)
+        #
+        # out_img_save_path = os.path.join(curr_img_folder, '{}_pixie_vertices.png'.format(img_name))
+        #
+        # output_img.save(out_img_save_path)
+        #
+        # print("saved pixie vertices to %s" % out_img_save_path)
+        # exit()
 
     else:
         init_t = fitting.guess_init(body_model, gt_joints, edge_indices,

@@ -95,9 +95,9 @@ class GMoF(nn.Module):
         return self.rho ** 2 * dist
 
 
-def smpl_to_openpose(model_type='smplx', use_hands=True, use_face=True,
-                     use_face_contour=False, openpose_format='coco25'):
-    ''' Returns the indices of the permutation that maps OpenPose to SMPL
+def smpl_to_annotation(model_type='smplx', use_hands=True, use_face=True,
+                     use_face_contour=False, format='coco25'):
+    ''' Returns the indices of the permutation that maps pose estimation to SMPL
 
         Parameters
         ----------
@@ -112,12 +112,34 @@ def smpl_to_openpose(model_type='smplx', use_hands=True, use_face=True,
             face keypoints. Defaults to True
         use_face_contour: bool, optional
             Flag for appending the facial contour keypoints. Defaults to False
-        openpose_format: bool, optional
-            The output format of OpenPose. For now only COCO-25 and COCO-19 is
+        format: bool, optional
+            The output format of format estimation. For now only COCO-25, COCO-19, and Halpe for SMPL-X are
             supported. Defaults to 'coco25'
 
     '''
-    if openpose_format.lower() == 'coco25':
+    if format.lower() == 'halpe':
+        if model_type == 'smplx':
+            body_mapping = np.array([55, 57, 56, 59, 58, 16, 17, 18, 19, 20, 21,
+                                     1, 2, 4, 5, 7, 8, 15, 12, 0, 60, 63,
+                                     61, 64, 62, 65], dtype=np.int32)
+            mapping = [body_mapping]
+            if use_hands:
+                lhand_mapping = np.array([20, 37, 38, 39, 66, 25, 26, 27,
+                                          67, 28, 29, 30, 68, 34, 35, 36, 69,
+                                          31, 32, 33, 70], dtype=np.int32)
+                rhand_mapping = np.array([21, 52, 53, 54, 71, 40, 41, 42, 72,
+                                          43, 44, 45, 73, 49, 50, 51, 74, 46,
+                                          47, 48, 75], dtype=np.int32)
+
+                mapping += [lhand_mapping, rhand_mapping]
+            if use_face:
+                #  end_idx = 127 + 17 * use_face_contour
+                face_mapping = np.arange(76, 127 + 17 * use_face_contour,
+                                         dtype=np.int32)
+                mapping += [face_mapping]
+            return np.concatenate(mapping)
+
+    elif format.lower() == 'coco25':
         if model_type == 'smpl':
             return np.array([24, 12, 17, 19, 21, 16, 18, 20, 0, 2, 5, 8, 1, 4,
                              7, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34],
@@ -160,7 +182,7 @@ def smpl_to_openpose(model_type='smplx', use_hands=True, use_face=True,
             return np.concatenate(mapping)
         else:
             raise ValueError('Unknown model type: {}'.format(model_type))
-    elif openpose_format == 'coco19':
+    elif format == 'coco19':
         if model_type == 'smpl':
             return np.array([24, 12, 17, 19, 21, 16, 18, 20, 0, 2, 5, 8,
                              1, 4, 7, 25, 26, 27, 28],
@@ -204,7 +226,7 @@ def smpl_to_openpose(model_type='smplx', use_hands=True, use_face=True,
         else:
             raise ValueError('Unknown model type: {}'.format(model_type))
     else:
-        raise ValueError('Unknown joint format: {}'.format(openpose_format))
+        raise ValueError('Unknown joint format: {}'.format(format))
 
 def get_PIXIE_data(img_path, img_name, detector, device, crop_size=224, hd_size=1024, iscrop=True, scale=1.1):
     image = imread(img_path)[:, :, :3] / 255.
