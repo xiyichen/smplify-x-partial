@@ -272,7 +272,7 @@ def fit_single_frame(img,
     if use_joints_conf:
         joints_conf = joints_conf.to(device=device, dtype=dtype)
 
-    indices_low_conf = [i for i in range(len(joints_conf[0])) if joints_conf[0][i] < 0.65]
+    indices_low_conf = [i for i in range(len(joints_conf[0])) if joints_conf[0][i] < kwargs.get('confidence_threshold')]
     joint_weights[:, indices_low_conf] = 0
     if kwargs.get('dataset').lower() == 'openpose':
         indices_5kpts = [2, 5, 8, 15, 16]

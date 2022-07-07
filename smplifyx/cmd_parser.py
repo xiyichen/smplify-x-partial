@@ -291,6 +291,8 @@ def parse_config(argv=None):
                         help='Whether to use gender classifier')
     parser.add_argument('--save_vertices', type=lambda arg: arg.lower() == 'true', default=False,
                         help='Whether to use gender classifier')
+    parser.add_argument('--confidence_threshold', type=float, default=0,
+                        help='The confidence thresholds below which a keypoint will not be considered during optimization')
 
     args = parser.parse_args(argv)
 

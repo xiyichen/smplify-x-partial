@@ -115,3 +115,4 @@ regression_prior: PIXIE
 use_gender_classifier: True
 use_camera_prior: True
 save_vertices: True
+confidence_threshold: 0.65
