@@ -293,6 +293,9 @@ def parse_config(argv=None):
                         help='Whether to use gender classifier')
     parser.add_argument('--confidence_threshold', type=float, default=0,
                         help='The confidence thresholds below which a keypoint will not be considered during optimization')
+    parser.add_argument('--indices_5kpts', nargs='*', type=int,
+                        default=[2, 5, 8, 15, 16],
+                        help='5 upper-body keypoints to visualize')
 
     args = parser.parse_args(argv)
 

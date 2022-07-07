@@ -274,10 +274,7 @@ def fit_single_frame(img,
 
     indices_low_conf = [i for i in range(len(joints_conf[0])) if joints_conf[0][i] < kwargs.get('confidence_threshold')]
     joint_weights[:, indices_low_conf] = 0
-    if kwargs.get('dataset').lower() == 'openpose':
-        indices_5kpts = [2, 5, 8, 15, 16]
-    elif kwargs.get('dataset').lower() == 'mmpose':
-        indices_5kpts = [5, 6, 19, 1, 2]
+    indices_5kpts = kwargs.get('indices_5kpts')
 
     init_joints_idxs_trimmed = []
     for idx in init_joints_idxs:

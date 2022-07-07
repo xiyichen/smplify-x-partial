@@ -103,3 +103,6 @@ use_vposer: True
 vposer_ckpt: "vposer"
 regression_prior: null
 save_vertices: True
+confidence_threshold: 0
+indices_5kpts:
+    [2, 5, 8, 15, 16]

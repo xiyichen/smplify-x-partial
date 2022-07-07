@@ -111,3 +111,5 @@ use_gender_classifier: True
 use_camera_prior: True
 save_vertices: True
 confidence_threshold: 0.2
+indices_5kpts:
+    [2, 5, 8, 15, 16]

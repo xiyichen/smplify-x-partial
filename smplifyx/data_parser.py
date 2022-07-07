@@ -103,10 +103,6 @@ def read_keypoints(keypoint_fn, use_hands=True, use_face=True,
 
 
 class OpenPose(Dataset):
-
-    NUM_BODY_JOINTS = 25
-    NUM_HAND_JOINTS = 20
-
     def __init__(self, data_folder, img_folder='images',
                  keyp_folder='keypoints',
                  use_hands=False,
@@ -115,7 +111,9 @@ class OpenPose(Dataset):
                  model_type='smplx',
                  joints_to_ign=None,
                  use_face_contour=False,
-                 openpose_format='coco25',
+                 format='coco25',
+                 num_body_joints=25,
+                 num_hand_joints=20,
                  **kwargs):
         super(OpenPose, self).__init__()
 
@@ -125,11 +123,13 @@ class OpenPose(Dataset):
         self.dtype = dtype
         self.joints_to_ign = joints_to_ign
         self.use_face_contour = use_face_contour
+        self.num_body_joints = num_body_joints
+        self.num_hand_joints = num_hand_joints
 
-        self.openpose_format = openpose_format
+        self.format = format
 
-        self.num_joints = (self.NUM_BODY_JOINTS +
-                           2 * self.NUM_HAND_JOINTS * use_hands)
+        self.num_joints = (self.num_body_joints +
+                           2 * self.num_hand_joints * use_hands)
 
         self.img_folder = osp.join(data_folder, img_folder)
         self.keyp_folder = osp.join(data_folder, keyp_folder)
@@ -146,7 +146,7 @@ class OpenPose(Dataset):
         return smpl_to_annotation(self.model_type, use_hands=self.use_hands,
                                 use_face=self.use_face,
                                 use_face_contour=self.use_face_contour,
-                                format=self.openpose_format)
+                                format=self.format)
 
     def get_left_shoulder(self):
         return 2
@@ -177,7 +177,6 @@ class OpenPose(Dataset):
 
     def read_item(self, img_path):
         img = cv2.imread(img_path).astype(np.float32)[:, :, ::-1] / 255.0
-        img_fn = osp.split(img_path)[1]
         img_fn, _ = osp.splitext(osp.split(img_path)[1])
 
         keypoint_fn = osp.join(self.keyp_folder,
@@ -216,11 +215,7 @@ class OpenPose(Dataset):
 
         return self.read_item(img_path)
 
-class MMPose(Dataset):
-
-    NUM_BODY_JOINTS = 26
-    NUM_HAND_JOINTS = 20
-
+class MMPose(OpenPose):
     def __init__(self, data_folder, img_folder='images',
                  keyp_folder='keypoints',
                  use_hands=False,
@@ -229,69 +224,24 @@ class MMPose(Dataset):
                  model_type='smplx',
                  joints_to_ign=None,
                  use_face_contour=False,
-                 mmpose_format='halpe',
+                 format='halpe',
                  **kwargs):
-        super(MMPose, self).__init__()
 
-        self.use_hands = use_hands
-        self.use_face = use_face
-        self.model_type = model_type
-        self.dtype = dtype
-        self.joints_to_ign = joints_to_ign
-        self.use_face_contour = use_face_contour
-
-        self.mmpose_format = mmpose_format
-
-        self.num_joints = (self.NUM_BODY_JOINTS +
-                           2 * self.NUM_HAND_JOINTS * use_hands)
-
-        self.img_folder = osp.join(data_folder, img_folder)
-        self.keyp_folder = osp.join(data_folder, keyp_folder)
-
-        self.img_paths = [osp.join(self.img_folder, img_fn)
-                          for img_fn in os.listdir(self.img_folder)
-                          if img_fn.endswith('.png') or
-                          img_fn.endswith('.jpg') and
-                          not img_fn.startswith('.')]
-        self.img_paths = sorted(self.img_paths)
-        self.cnt = 0
-
-    def get_model2data(self):
-        return smpl_to_annotation(self.model_type, use_hands=self.use_hands,
-                                use_face=self.use_face,
-                                use_face_contour=self.use_face_contour,
-                                format=self.mmpose_format)
-
-    def get_left_shoulder(self):
-        return 5
-
-    def get_right_shoulder(self):
-        return 6
-
-    def get_joint_weights(self):
-        # The weights for the joint terms in the optimization
-        optim_weights = np.ones(self.num_joints + 2 * self.use_hands +
-                                self.use_face * 51 +
-                                17 * self.use_face_contour,
-                                dtype=np.float32)
-
-        # Neck, Left and right hip
-        # These joints are ignored because SMPL has no neck joint and the
-        # annotation of the hips is ambiguous.
-        if self.joints_to_ign is not None and -1 not in self.joints_to_ign:
-            optim_weights[self.joints_to_ign] = 0.
-        return torch.tensor(optim_weights, dtype=self.dtype)
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, idx):
-        img_path = self.img_paths[idx]
-        return self.read_item(img_path)
+        super(MMPose, self).__init__(data_folder, img_folder=img_folder,
+                 keyp_folder=keyp_folder,
+                 use_hands=use_hands,
+                 use_face=use_face,
+                 dtype=dtype,
+                 model_type=model_type,
+                 joints_to_ign=joints_to_ign,
+                 use_face_contour=use_face_contour,
+                 format=format,
+                 num_body_joints=26,
+                 num_hand_joints=20,
+                 **kwargs)
 
     def read_item(self, img_path):
         img = cv2.imread(img_path).astype(np.float32)[:, :, ::-1] / 255.0
-        img_fn = osp.split(img_path)[1]
         img_fn, _ = osp.splitext(osp.split(img_path)[1])
 
         keypoint_fn = osp.join(self.keyp_folder,
@@ -309,17 +259,8 @@ class MMPose(Dataset):
                        'keypoints': keypoints, 'img': img}
         return output_dict
 
-    def __iter__(self):
-        return self
+    def get_left_shoulder(self):
+        return 5
 
-    def __next__(self):
-        return self.next()
-
-    def next(self):
-        if self.cnt >= len(self.img_paths):
-            raise StopIteration
-
-        img_path = self.img_paths[self.cnt]
-        self.cnt += 1
-
-        return self.read_item(img_path)
+    def get_right_shoulder(self):
+        return 6
