@@ -18,6 +18,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
+from glob import glob
 
 import sys
 import os
@@ -42,13 +43,15 @@ Keypoints = namedtuple('Keypoints',
 Keypoints.__new__.__defaults__ = (None,) * len(Keypoints._fields)
 
 
-def create_dataset(dataset='openpose', data_folder='data', **kwargs):
-    if dataset.lower() == 'openpose':
-        return OpenPose(data_folder, **kwargs)
-    elif dataset.lower() == 'mmpose':
-        return MMPose(data_folder, **kwargs)
+def create_dataset(format='coco25', data_folder='data', **kwargs):
+    if format.lower() == 'coco25':
+        return COCO25(data_folder, **kwargs)
+    elif format.lower() == 'halpe':
+        return Halpe(data_folder, **kwargs)
+    elif format.lower() == 'coco_wholebody':
+        return COCO_Wholebody(data_folder, **kwargs)
     else:
-        raise ValueError('Unknown dataset: {}'.format(dataset))
+        raise ValueError('Unknown dataset: {}'.format(format))
 
 
 def read_keypoints(keypoint_fn, use_hands=True, use_face=True,
@@ -102,7 +105,7 @@ def read_keypoints(keypoint_fn, use_hands=True, use_face=True,
                      gender_gt=gender_gt)
 
 
-class OpenPose(Dataset):
+class COCO25(Dataset):
     def __init__(self, data_folder, img_folder='images',
                  keyp_folder='keypoints',
                  use_hands=False,
@@ -115,7 +118,7 @@ class OpenPose(Dataset):
                  num_body_joints=25,
                  num_hand_joints=20,
                  **kwargs):
-        super(OpenPose, self).__init__()
+        super(COCO25, self).__init__()
 
         self.use_hands = use_hands
         self.use_face = use_face
@@ -179,8 +182,10 @@ class OpenPose(Dataset):
         img = cv2.imread(img_path).astype(np.float32)[:, :, ::-1] / 255.0
         img_fn, _ = osp.splitext(osp.split(img_path)[1])
 
-        keypoint_fn = osp.join(self.keyp_folder,
-                               img_fn + '_keypoints.json')
+        keypoint_fn = glob(os.path.join(self.keyp_folder, img_fn + '_*.json'))
+        if len(keypoint_fn) == 0:
+            raise Exception('Keypoint file for {} does not exist!'.format(img_fn))
+        keypoint_fn = keypoint_fn[0]
         keyp_tuple = read_keypoints(keypoint_fn, use_hands=self.use_hands,
                                     use_face=self.use_face,
                                     use_face_contour=self.use_face_contour)
@@ -215,7 +220,7 @@ class OpenPose(Dataset):
 
         return self.read_item(img_path)
 
-class MMPose(OpenPose):
+class Halpe(COCO25):
     def __init__(self, data_folder, img_folder='images',
                  keyp_folder='keypoints',
                  use_hands=False,
@@ -227,7 +232,7 @@ class MMPose(OpenPose):
                  format='halpe',
                  **kwargs):
 
-        super(MMPose, self).__init__(data_folder, img_folder=img_folder,
+        super(Halpe, self).__init__(data_folder, img_folder=img_folder,
                  keyp_folder=keyp_folder,
                  use_hands=use_hands,
                  use_face=use_face,
@@ -240,24 +245,36 @@ class MMPose(OpenPose):
                  num_hand_joints=20,
                  **kwargs)
 
-    def read_item(self, img_path):
-        img = cv2.imread(img_path).astype(np.float32)[:, :, ::-1] / 255.0
-        img_fn, _ = osp.splitext(osp.split(img_path)[1])
+    def get_left_shoulder(self):
+        return 5
 
-        keypoint_fn = osp.join(self.keyp_folder,
-                               img_fn + '_mmpose.json')
-        keyp_tuple = read_keypoints(keypoint_fn, use_hands=self.use_hands,
-                                    use_face=self.use_face,
-                                    use_face_contour=self.use_face_contour)
+    def get_right_shoulder(self):
+        return 6
 
-        if len(keyp_tuple.keypoints) < 1:
-            return {}
-        keypoints = np.stack(keyp_tuple.keypoints)
+class COCO_Wholebody(COCO25):
+    def __init__(self, data_folder, img_folder='images',
+                 keyp_folder='keypoints',
+                 use_hands=False,
+                 use_face=False,
+                 dtype=torch.float32,
+                 model_type='smplx',
+                 joints_to_ign=None,
+                 use_face_contour=False,
+                 format='coco_wholebody',
+                 **kwargs):
 
-        output_dict = {'fn': img_fn,
-                       'img_path': img_path,
-                       'keypoints': keypoints, 'img': img}
-        return output_dict
+        super(COCO_Wholebody, self).__init__(data_folder, img_folder=img_folder,
+                 keyp_folder=keyp_folder,
+                 use_hands=use_hands,
+                 use_face=use_face,
+                 dtype=dtype,
+                 model_type=model_type,
+                 joints_to_ign=joints_to_ign,
+                 use_face_contour=use_face_contour,
+                 format=format,
+                 num_body_joints=23,
+                 num_hand_joints=20,
+                 **kwargs)
 
     def get_left_shoulder(self):
         return 5

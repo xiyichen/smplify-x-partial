@@ -272,7 +272,8 @@ def fit_single_frame(img,
     if use_joints_conf:
         joints_conf = joints_conf.to(device=device, dtype=dtype)
 
-    indices_low_conf = [i for i in range(len(joints_conf[0])) if joints_conf[0][i] < kwargs.get('confidence_threshold')]
+    indices_low_conf = [i for i in range(len(joints_conf[0])) if (joints_conf[0][i] < kwargs.get('confidence_threshold'))]
+    # or (i in [4, 7, 11, 14, 19, 20, 21, 22, 23, 24]+list(range(25,25+42)) and joints_conf[0][i] < 0.4))]
     joint_weights[:, indices_low_conf] = 0
     indices_5kpts = kwargs.get('indices_5kpts')
 
@@ -615,6 +616,11 @@ def fit_single_frame(img,
                     joint_weights[:, 25:67] = curr_weights['hand_weight']
                 if use_face:
                     joint_weights[:, 67:] = curr_weights['face_weight']
+                # if opt_idx == 4:
+                #     joint_weights[:, :25] = 1.2
+
+                joint_weights[:, indices_low_conf] = 0
+
                 loss.reset_loss_weights(curr_weights)
 
                 closure = monitor.create_fitting_closure(

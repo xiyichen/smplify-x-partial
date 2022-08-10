@@ -64,8 +64,8 @@ def parse_config(argv=None):
                         type=lambda arg: arg.lower() == 'true',
                         default=True,
                         help='Use CUDA for the computations')
-    parser.add_argument('--dataset', default='hands_cmu_gt', type=str,
-                        help='The name of the dataset that will be used')
+    parser.add_argument('--format', default='coco_wholebody', choices=['coco25', 'halpe', 'coco_wholebody'], type=str,
+                        help='The body format')
     parser.add_argument('--joints_to_ign', default=-1, type=int,
                         nargs='*',
                         help='Indices of joints to be ignored')

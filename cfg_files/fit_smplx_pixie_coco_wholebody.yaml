@@ -1,7 +1,12 @@
-dataset: 'openpose'
+format: 'coco_wholebody'
 joints_to_ign:
-    - 1
-    - 9
+    - 0
+    - 11
+    - 12
+body_tri_idxs:
+    - 5
+    - 11
+    - 6
     - 12
 data_folder: "data"
 output_folder: 'smplx_debug'
@@ -59,11 +64,11 @@ coll_loss_weights:
     - 0.01
     - 1.0
 shape_weights:
-    - 150
+    - 200
+    - 100
     - 75
     - 50
-    - 20
-    - 10
+    - 25
 expr_weights:
     - 1.0e2
     - 5.0e1
@@ -89,19 +94,19 @@ jaw_pose_prior_weights:
     - 47.8,478,478
 hand_joints_weights:
     - 0
+    - 0
     - 0.1
-    - 0.3
     - 0.5
     - 2.0
 face_joints_weights:
     - 0
+    - 0
+    - 0
     - 0.1
-    - 0.3
-    - 0.5
     - 2.0
 use_face_contour: True
 init_joints_idxs:
-    [15, 16, 2, 5, 3, 6, 9, 8, 12]
+    [1, 2, 5, 6, 7, 8, 11, 12]
 use_vposer: True
 vposer_ckpt: "vposer"
 num_betas: 200
@@ -110,6 +115,6 @@ regression_prior: PIXIE
 use_gender_classifier: True
 use_camera_prior: True
 save_vertices: True
-confidence_threshold: 0.2
+confidence_threshold: 0.4
 indices_5kpts:
-    [2, 5, 8, 15, 16]
+    [5, 6, 11, 12]

@@ -222,6 +222,11 @@ def main(**args):
     for idx, data in enumerate(dataset_obj):
         img = data['img']
         fn = data['fn']
+        # if not fn.split('_')[0] in [
+        #   '26', '27', '36']:
+        #   # '02', '03', '07', '22', '26', '27', '36']:
+        #   # '01', '02']:
+        #   continue
         keypoints = data['keypoints']
         print('Processing: {}'.format(data['img_path']))
         img_path = data['img_path']
@@ -292,7 +297,7 @@ def main(**args):
             fit_single_frame(img, keypoints[[person_id]],
                              body_model=body_model,
                              camera=camera,
-                             joint_weights=joint_weights,
+                             joint_weights=joint_weights.clone(),
                              dtype=dtype,
                              output_folder=output_folder,
                              result_folder=curr_result_folder,
