@@ -68,14 +68,16 @@ def guess_init(model,
         init_t: torch.tensor 1x3, dtype = torch.float32
             The vector with the estimated camera location
     '''
-
-    body_pose = vposer.decode(
-        pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
-    if use_vposer and model_type == 'smpl':
-        wrist_pose = torch.zeros([body_pose.shape[0], 6],
-                                 dtype=body_pose.dtype,
-                                 device=body_pose.device)
-        body_pose = torch.cat([body_pose, wrist_pose], dim=1)
+    if use_vposer:
+        body_pose = vposer.decode(
+            pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
+        if use_vposer and model_type == 'smpl':
+            wrist_pose = torch.zeros([body_pose.shape[0], 6],
+                                     dtype=body_pose.dtype,
+                                     device=body_pose.device)
+            body_pose = torch.cat([body_pose, wrist_pose], dim=1)
+    else:
+        body_pose = pose_embedding
 
     output = model(body_pose=body_pose, return_verts=False,
                    return_full_pose=False)
@@ -191,9 +193,12 @@ class FittingMonitor(object):
                 break
 
             if self.visualize and n % self.summary_steps == 0:
-                body_pose = vposer.decode(
-                    pose_embedding, output_type='aa').view(
+                if use_vposer:
+                    body_pose = vposer.decode(
+                        pose_embedding, output_type='aa').view(
                         1, -1) if use_vposer else None
+                else:
+                    body_pose = pose_embedding.reshape(1, -1)
 
                 if append_wrists:
                     wrist_pose = torch.zeros([body_pose.shape[0], 6],
@@ -227,10 +232,12 @@ class FittingMonitor(object):
         def fitting_func(stage=0, backward=True):
             if backward:
                 optimizer.zero_grad()
-
-            body_pose = vposer.decode(
-                pose_embedding, output_type='aa').view(
-                    1, -1) if use_vposer else None
+            if use_vposer:
+                body_pose = vposer.decode(
+                    pose_embedding, output_type='aa').view(
+                        1, -1) if use_vposer else None
+            else:
+                body_pose = pose_embedding.reshape(1, -1)
 
             if append_wrists:
                 wrist_pose = torch.zeros([body_pose.shape[0], 6],
@@ -247,6 +254,7 @@ class FittingMonitor(object):
                               joints_conf=joints_conf,
                               joint_weights=joint_weights,
                               pose_embedding=pose_embedding,
+                              vposer=vposer,
                               use_vposer=use_vposer,
                               stage=stage,
                               **kwargs)
@@ -300,6 +308,7 @@ class SMPLifyLoss(nn.Module):
                  coll_loss_weight=0.0,
                  reduction='sum',
                  regression_pose=None,
+                 num_stages=3,
                  **kwargs):
 
         super(SMPLifyLoss, self).__init__()
@@ -350,6 +359,7 @@ class SMPLifyLoss(nn.Module):
             self.register_buffer('coll_loss_weight',
                                  torch.tensor(coll_loss_weight, dtype=dtype))
         self.regression_pose = regression_pose
+        self.num_stages = num_stages
 
     def reset_loss_weights(self, loss_weight_dict):
         for key in loss_weight_dict:
@@ -364,8 +374,7 @@ class SMPLifyLoss(nn.Module):
                 setattr(self, key, weight_tensor)
 
     def forward(self, body_model_output, camera, gt_joints, joints_conf,
-                body_model_faces, joint_weights, stage,
-                use_vposer=False, pose_embedding=None,
+                body_model_faces, joint_weights, stage=0, vposer=None, use_vposer=False, pose_embedding=None,
                 **kwargs):
         projected_joints = camera(body_model_output.joints)
         # Calculate the weights for each joints
@@ -378,15 +387,16 @@ class SMPLifyLoss(nn.Module):
         joint_diff = self.robustifier(gt_joints - projected_joints)
         joint_loss = (torch.sum(weights ** 2 * joint_diff) *
                       self.data_weight ** 2)
-
         # Calculate the loss from the Pose prior
         if use_vposer:
-            if self.regression_pose is None or stage <= 3:
-                pprior_loss = (pose_embedding.pow(2).sum() *
-                               self.body_pose_weight ** 2)
+            if stage+1 == self.num_stages and self.regression_pose is not None:
+                # if using vposer and regression prior, penalize towards encoded regression prior pose only at last stage
+                pose_embedding_prior = vposer.encode(self.regression_pose.reshape(1, -1)).sample()
+                pprior_loss = ((pose_embedding - pose_embedding_prior).pow(2).sum() * self.body_pose_weight ** 2)
             else:
-                pprior_loss = ((pose_embedding - self.regression_pose).pow(2).sum() *
-                               self.body_pose_weight ** 2)
+                pprior_loss = (pose_embedding.pow(2).sum() * self.body_pose_weight ** 2)
+        elif self.regression_pose is not None:
+            pprior_loss = ((pose_embedding - self.regression_pose).pow(2).sum()) * (self.body_pose_weight) ** 2
         else:
             pprior_loss = torch.sum(self.body_pose_prior(
                 body_model_output.body_pose,
@@ -397,8 +407,7 @@ class SMPLifyLoss(nn.Module):
         # Calculate the prior over the joint rotations. This a heuristic used
         # to prevent extreme rotation of the elbows and knees
         body_pose = body_model_output.full_pose[:, 3:66]
-        angle_prior_loss = torch.sum(
-            self.angle_prior(body_pose)) * self.bending_prior_weight
+        angle_prior_loss = torch.sum(self.angle_prior(body_pose)) * self.bending_prior_weight
 
         # Apply the prior on the pose space of the hand
         left_hand_prior_loss, right_hand_prior_loss = 0.0, 0.0
@@ -499,7 +508,8 @@ class SMPLifyCameraInitLoss(nn.Module):
             torch.index_select(projected_joints, 1, self.init_joints_idxs),
             2)
         joints_conf = torch.index_select(self.joints_conf, 1, self.init_joints_idxs).unsqueeze(2)
-        joint_loss = torch.sum(joint_error) * self.data_weight ** 2
+
+        joint_loss = torch.sum(joint_error * (joints_conf.unsqueeze(2) ** 2)) * self.data_weight ** 2
 
         depth_loss = 0.0
         if (self.depth_loss_weight.item() > 0 and self.trans_estimation is not

@@ -189,7 +189,7 @@ def parse_config(argv=None):
                         type=lambda x: x.lower() in ['true', '1'],
                         help='Penalize outside')
     parser.add_argument('--data_weights', nargs='*',
-                        default=[1, ] * 5, type=float,
+                        default=None, type=float,
                         help='The weight of the data term')
     parser.add_argument('--body_pose_prior_weights',
                         default=[4.04 * 1e2, 4.04 * 1e2, 57.4, 4.78],
@@ -278,11 +278,15 @@ def parse_config(argv=None):
                         help='The number of shape parameters')
     parser.add_argument('--num_expression_coeffs', type=int, default=10,
                         help='The number of expression parameters')
-    parser.add_argument('--regression_prior', default=None, type=str,
-                        choices=['PIXIE', None],
+    parser.add_argument('--regression_prior', default='combined', type=str,
+                        choices=['PIXIE', 'ExPose', 'PARE', 'combined', None],
                         help='The regression method to use as prior')
     parser.add_argument('--pixie_results_directory', default=None, type=str,
                         help='Directory of PIXIE results')
+    parser.add_argument('--expose_results_directory', default=None, type=str,
+                        help='Directory of ExPose results')
+    parser.add_argument('--pare_results_directory', default=None, type=str,
+                        help='Directory of PARE results')
     parser.add_argument('--homogeneous_ckpt', default='./homogeneous/trained_models/tf/', type=str,
                         help='Directory of pre-trained gender classifier models')
     parser.add_argument('--use_camera_prior', type=lambda arg: arg.lower() == 'true', default=False,
@@ -293,9 +297,6 @@ def parse_config(argv=None):
                         help='Whether to use gender classifier')
     parser.add_argument('--confidence_threshold', type=float, default=0,
                         help='The confidence thresholds below which a keypoint will not be considered during optimization')
-    parser.add_argument('--indices_5kpts', nargs='*', type=int,
-                        default=[2, 5, 8, 15, 16],
-                        help='5 upper-body keypoints to visualize')
 
     args = parser.parse_args(argv)
 

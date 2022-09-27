@@ -1,29 +1,30 @@
-dataset: 'openpose'
+format: 'coco25'
 joints_to_ign:
     - 1
     - 9
     - 12
 data_folder: "data"
-output_folder: 'smpl_debug'
+output_folder: 'smplx_debug'
 prior_folder: 'priors'
 model_folder: 'models'
 result_folder: 'results'
 gender: "neutral"
-model_type: 'smpl'
+model_type: 'smplx'
 # Flag for using the GPU
 use_cuda: True
 float_dtype: "float32"
 use_joints_conf: True
 use_pca: True
-use_hands: False
-use_face: False
+use_hands: True
+use_face: True
 flat_hand_mean: False
 # The number of mixture components for the pose prior
 num_gaussians: 8
 body_prior_type: 'l2'
 left_hand_prior_type: l2
 right_hand_prior_type: l2
-focal_length: 5000
+jaw_prior_type: 'l2'
+focal_length: 1000
 num_pca_comps: 12
 # The constant for the robust loss function
 rho: 100
@@ -42,27 +43,49 @@ lr: 1.0
 # Max number of optimization iterations
 maxiters: 30
 interactive: True
-visualize: False
-
-data_weights:
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
+visualize: True
+# Relative change in loss value
 body_pose_prior_weights:
-    - 4.04e2
-    - 4.04e2
-    - 57.4e0
-    - 4.78e0
+    - 20
+    - 10
+    - 7.5
 coll_loss_weights:
     - 0.0
-    - 0.0
-    - 0.01
+    - 0.1
     - 1.0
 shape_weights:
-    - 1.0e2
-    - 5.0e1
+    - 75
+    - 50
+    - 35
+expr_weights:
     - 1.0e1
     - 0.5e1
+    - 0.5e1
+hand_pose_prior_weights:
+    - 57.4
+    - 4.78
+    - 4.78
+jaw_pose_prior_weights:
+    - 1000, 10000, 10000
+    - 100, 1000, 1000
+    - 100, 1000, 1000
+hand_joints_weights:
+    - 0.0
+    - 0.1
+    - 2.0
+face_joints_weights:
+    - 0.0
+    - 0.0
+    - 2.0
+use_face_contour: True
+init_joints_idxs:
+    [0, 1, 2, 3, 5, 6, 8, 9, 12, 15, 16, 17, 18]
 use_vposer: True
 vposer_ckpt: "vposer"
+num_betas: 10
+num_expression_coeffs: 10
+regression_prior: combined
+use_gender_classifier: True
+use_camera_prior: True
+save_vertices: True
+confidence_threshold: 0.2

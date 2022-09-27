@@ -24,11 +24,10 @@ body_prior_type: 'l2'
 left_hand_prior_type: l2
 right_hand_prior_type: l2
 jaw_prior_type: 'l2'
-focal_length: 1000
 num_pca_comps: 12
 # The constant for the robust loss function
 rho: 100
-interpenetration: False
+interpenetration: True
 df_cone_height: 0.0001
 # Upper arms and Spine 2
 # Neck and jaw
@@ -45,71 +44,47 @@ maxiters: 30
 interactive: True
 visualize: True
 # Relative change in loss value
-# Relative change in loss value
 body_pose_prior_weights:
-    - 100
-    - 50
-    - 20
-    - 10
-    - 7.5
+    - 500
+    - 300
+    - 200
 coll_loss_weights:
     - 0.0
-    - 0.0
-    - 0.0
-    - 0.01
+    - 0.1
     - 1.0
 shape_weights:
-    - 200
-    - 100
     - 75
     - 50
-    - 25
+    - 35
 expr_weights:
-    - 1.0e2
-    - 5.0e1
     - 1.0e1
     - 0.5e1
     - 0.5e1
 hand_pose_prior_weights:
-    - 4.04e2
-    - 4.04e2
     - 57.4
     - 4.78
     - 4.78
 jaw_pose_prior_weights:
-    # First phase
-    - 4.04e03,4.04e04,4.04e04
-    # Second phase
-    - 4.04e03,4.04e04,4.04e04
-    # Third phase
-    - 574,5740,5740
-    # Fourth phase
-    - 47.8,478,478
-    # Fifth phase
-    - 47.8,478,478
+    - 1000, 10000, 10000
+    - 100, 1000, 1000
+    - 100, 1000, 1000
 hand_joints_weights:
-    - 0
-    - 0
+    - 0.0
     - 0.1
-    - 0.5
     - 2.0
 face_joints_weights:
-    - 0
-    - 0
-    - 0
-    - 0.1
+    - 0.0
+    - 0.0
     - 2.0
 use_face_contour: True
 init_joints_idxs:
-    [15, 16, 2, 5, 3, 6, 9, 8, 12]
-use_vposer: True
+    [0, 1, 2, 3, 5, 6, 8, 9, 12, 15, 16, 17, 18]
+use_vposer: False
 vposer_ckpt: "vposer"
-num_betas: 200
-num_expression_coeffs: 50
-regression_prior: PIXIE
+num_betas: 10
+num_expression_coeffs: 10
+regression_prior: combined
 use_gender_classifier: True
 use_camera_prior: True
 save_vertices: True
 confidence_threshold: 0.2
-indices_5kpts:
-    [2, 5, 8, 15, 16]

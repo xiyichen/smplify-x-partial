@@ -78,7 +78,6 @@ def read_keypoints(keypoint_fn, use_hands=True, use_face=True,
             body_keypoints = np.concatenate(
                 [body_keypoints, left_hand_keyp, right_hand_keyp], axis=0)
         if use_face:
-            # TODO: Make parameters, 17 is the offset for the eye brows,
             # etc. 51 is the total number of FLAME compatible landmarks
             face_keypoints = np.array(
                 person_data['face_keypoints_2d'],
