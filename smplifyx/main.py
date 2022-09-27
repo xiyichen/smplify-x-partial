@@ -125,6 +125,15 @@ def main(**args):
         neutral_model = smplx.create(gender='neutral', **model_params)
     female_model = smplx.create(gender='female', **model_params)
 
+    # Create the camera object
+    focal_length = args.get('focal_length')
+    camera = create_camera(focal_length_x=focal_length,
+                           focal_length_y=focal_length,
+                           dtype=dtype,
+                           **args)
+
+    if hasattr(camera, 'rotation'):
+        camera.rotation.requires_grad = False
 
     use_hands = args.get('use_hands', True)
     use_face = args.get('use_face', True)
@@ -170,6 +179,8 @@ def main(**args):
 
     if use_cuda and torch.cuda.is_available():
         device = torch.device('cuda')
+
+        camera = camera.to(device=device)
         female_model = female_model.to(device=device)
         male_model = male_model.to(device=device)
         if args.get('model_type') != 'smplh':
@@ -189,7 +200,9 @@ def main(**args):
     # A weight for every joint of the model
     joint_weights = dataset_obj.get_joint_weights().to(device=device,
                                                        dtype=dtype)
-
+    # joint_weights[3] = 2
+    # joint_weights[6] = 2
+    # joint_weights[[2, 5, 8, 15, 16]] = 3
     # Add a fake batch dimension for broadcasting
     joint_weights.unsqueeze_(dim=0)
 
@@ -200,29 +213,19 @@ def main(**args):
         gender_inferer = Homogenus_infer(args.get('homogeneous_ckpt'))
 
     regression_prior = args.get('regression_prior', None)
-    pixie_results_directory = args.get('pixie_results_directory', None)
-    expose_results_directory = args.get('expose_results_directory', None)
-    pare_results_directory = args.get('pare_results_directory', None)
+    regression_results = None
+    if regression_prior is not None:
+        pixie_results_path = args.get('pixie_results_directory', None)
+        expose_results_path = args.get('expose_results_directory', None)
 
     for idx, data in enumerate(dataset_obj):
         img = data['img']
-        H, W, _ = img.shape
-
-        # Create the camera object
-        focal_length = (W**2+H**2)**0.5
-        camera = create_camera(focal_length_x=focal_length,
-                               focal_length_y=focal_length,
-                               dtype=dtype,
-                               **args)
-        args['focal_length'] = focal_length
-
-        camera = camera.to(device=device)
-
-        if hasattr(camera, 'rotation'):
-            camera.rotation.requires_grad = False
-
         fn = data['fn']
-
+        # if not fn.split('_')[0] in [
+        #   '01', '22', '29', '31']:
+        #   # '02', '03', '07', '22', '26', '27', '36']:
+        #   # '01', '02']:
+        #   continue
         keypoints = data['keypoints']
         print('Processing: {}'.format(data['img_path']))
         img_path = data['img_path']
@@ -275,20 +278,13 @@ def main(**args):
                 if img_name[i] not in ['/', '\\']:
                     img_name = img_name[i:]
                     break
-            pixie_results = None
-            expose_results = None
-            pare_results = None
+
             if regression_prior:
-                if pixie_results_directory:
-                    pixie_results = joblib.load(
-                        osp.join(pixie_results_directory, img_name, img_name + '_param.pkl'))
+                pixie_results = joblib.load(
+                    osp.join(pixie_results_path, img_name, img_name + '_param.pkl'))
 
-                if expose_results_directory:
-                    expose_results = np.load(
-                        osp.join(expose_results_directory, img_name + '.jpg', img_name + '.jpg' + '_params.npz'))
-
-                if pare_results_directory:
-                    pare_results = joblib.load(osp.join(pare_results_directory, img_name + '.pkl'))
+                expose_results = np.load(
+                    osp.join(expose_results_path, img_name + '.jpg', img_name + '.jpg' + '_params.npz'))
 
             fit_single_frame(img, keypoints[[person_id]],
                              body_model=body_model,
@@ -310,7 +306,6 @@ def main(**args):
                              img_name=img_name,
                              pixie_results=pixie_results,
                              expose_results=expose_results,
-                             pare_results=pare_results,
                              smplx_path=smplx_path,
                              curr_img_folder=curr_img_folder,
                              **args)

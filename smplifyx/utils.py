@@ -478,13 +478,24 @@ def _compute_euler_from_matrix(dcm, seq='xyz', extrinsic=False):
     angles = angles.to(orig_device)
     return angles
 
-def optimization_visualization(img, smplx_path, pose_embedding, body_model, camera,
-                               focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path, use_cuda, mesh_fn, **kwargs):
+def optimization_visualization(img, smplx_path, vposer, pose_embedding, body_pose, body_model, camera,
+                               focal_length, W, H, out_img_save_path, vposer_rendered_img_save_path, use_cuda, mesh_fn, kpts, kpts_gt, **kwargs):
+    use_vposer = kwargs.get('use_vposer', True)
     with torch.no_grad():
-        model_output = body_model(return_verts=True, body_pose=pose_embedding)
+        # body_pose = vposer.decode(pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
+        #
+        # model_type = kwargs.get('model_type', 'smpl')
+        # append_wrists = model_type == 'smpl' and use_vposer
+        # if append_wrists:
+        #     wrist_pose = torch.zeros([body_pose.shape[0], 6],
+        #                              dtype=body_pose.dtype,
+        #                              device=body_pose.device)
+        #     body_pose = torch.cat([body_pose, wrist_pose], dim=1)
+
+        model_output = body_model(return_verts=True, body_pose=body_pose)
         if vposer_rendered_img_save_path:
             bm = BodyModel(smplx_path).to('cuda') if use_cuda else BodyModel(bm_path=smplx_path)
-            vposer_rendered_img = render_smpl_params(bm, pose_embedding.reshape((-1, 21, 3))).reshape(1, 1, 1, 400, 400, 3)
+            vposer_rendered_img = render_smpl_params(bm, body_pose.reshape((-1, 21, 3))).reshape(1, 1, 1, 400, 400, 3)
             vposer_rendered_img = imagearray2file(vposer_rendered_img)[0]
             vposer_rendered_img = pil_img.fromarray(vposer_rendered_img)
             vposer_rendered_img.save(vposer_rendered_img_save_path)
@@ -502,51 +513,38 @@ def optimization_visualization(img, smplx_path, pose_embedding, body_model, came
             output_img = render_mesh(img, out_mesh, camera_center, camera_transl, focal_length, W, H)
             output_img = pil_img.fromarray(output_img)
 
+            draw = ImageDraw.Draw(output_img)
+            for x, y in kpts_gt[0]:
+                draw.ellipse((x, y, x + 10, y + 10), fill=(255, 0, 0), outline=(0, 0, 0))
+            fills = [(255, 192, 103), (0, 0, 255), (0, 255, 0), (255, 255, 255), (255, 255, 0)]
+            for idx, (x, y) in enumerate(kpts[0]):
+                draw.ellipse((x, y, x + 10, y + 10), fill=fills[idx], outline=(0, 0, 0))
+
             output_img.save(out_img_save_path)
 
-def _create_raymond_lights():
-    thetas = np.pi * np.array([1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0])
-    phis = np.pi * np.array([0.0, 2.0 / 3.0, 4.0 / 3.0])
-
-    nodes = []
-
-    for phi, theta in zip(phis, thetas):
-        xp = np.sin(theta) * np.cos(phi)
-        yp = np.sin(theta) * np.sin(phi)
-        zp = np.cos(theta)
-
-        z = np.array([xp, yp, zp])
-        z = z / np.linalg.norm(z)
-        x = np.array([-z[1], z[0], 0.0])
-        if np.linalg.norm(x) == 0:
-            x = np.array([1.0, 0.0, 0.0])
-        x = x / np.linalg.norm(x)
-        y = np.cross(z, x)
-
-        matrix = np.eye(4)
-        matrix[:3, :3] = np.c_[x, y, z]
-        nodes.append(
-            pyrender.Node(
-                light=pyrender.DirectionalLight(color=np.ones(3),
-                                                intensity=1.0),
-                matrix=matrix
-            ))
-
-    return nodes
 
 def render_mesh(img, mesh_trimesh, camera_center, camera_transl, focal_length, img_width, img_height):
+
+    # material = pyrender.MetallicRoughnessMaterial(
+    #     metallicFactor=0.0,
+    #     alphaMode='OPAQUE',
+    #     baseColorFactor=(1.0, 1.0, 0.9, 1.0))
+
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    vertex_colors = np.loadtxt(os.path.join(script_dir, 'smplx_verts_colors.txt'))
     mesh_new = trimesh.Trimesh(vertices=mesh_trimesh.vertices, faces=mesh_trimesh.faces,
-                               vertex_colors=[0.4, 0.4, 0.7])
+                               vertex_colors=vertex_colors)
+    mesh_new.vertex_colors = vertex_colors
+    print("mesh visual kind: %s" % mesh_new.visual.kind)
 
-    mesh = pyrender.Mesh.from_trimesh(mesh_new)
+    # mesh = pyrender.Mesh.from_points(out_mesh.vertices, colors=vertex_colors)
 
-    scene = pyrender.Scene(bg_color=[0.0, 0.0, 0.0, 0.0],
-                           ambient_light=(0.0, 0.0, 0.0))
+    mesh = pyrender.Mesh.from_trimesh(mesh_new, smooth=False, wireframe=False)
 
+    scene = pyrender.Scene(bg_color=[1.0, 1.0, 1.0, 0.0],
+                           ambient_light=(0.3, 0.3, 0.3))
+    # scene = pyrender.Scene(bg_color=[0.0, 0.0, 0.0, 0.0])
     scene.add(mesh, 'mesh')
-    light_nodes = _create_raymond_lights()
-    for node in light_nodes:
-        scene.add_node(node)
 
     camera_pose = np.eye(4)
     camera_pose[:3, 3] = camera_transl
@@ -564,6 +562,10 @@ def render_mesh(img, mesh_trimesh, camera_center, camera_transl, focal_length, i
                                    point_size=1.0)
     color, _ = r.render(scene, flags=(pyrender.RenderFlags.RGBA |
                      pyrender.RenderFlags.SKIP_CULL_FACES))
+    # color = color.astype(np.float32) / 255.0
+    #
+    # output_img = color[:, :, 0:3]
+    # output_img = (output_img * 255).astype(np.uint8)
 
     color = np.transpose(color, [2, 0, 1]).astype(np.float32) / 255.0
     color = np.clip(color, 0, 1)
