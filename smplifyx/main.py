@@ -209,7 +209,9 @@ def main(**args):
         H, W, _ = img.shape
 
         # Create the camera object
-        focal_length = (W**2+H**2)**0.5
+        focal_length = args.get('focal_length', None)
+        if focal_length is None:
+            focal_length = (W**2+H**2)**0.5
         camera = create_camera(focal_length_x=focal_length,
                                focal_length_y=focal_length,
                                dtype=dtype,

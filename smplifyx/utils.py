@@ -440,11 +440,14 @@ def optimization_visualization(img, smplx_path, pose_embedding, body_model, came
     with torch.no_grad():
         model_output = body_model(return_verts=True, body_pose=pose_embedding)
         if vposer_rendered_img_save_path:
-            bm = BodyModel(smplx_path).to('cuda') if use_cuda else BodyModel(bm_path=smplx_path)
-            vposer_rendered_img = render_smpl_params(bm, pose_embedding.reshape((-1, 21, 3))).reshape(1, 1, 1, 400, 400, 3)
-            vposer_rendered_img = imagearray2file(vposer_rendered_img)[0]
-            vposer_rendered_img = pil_img.fromarray(vposer_rendered_img)
-            vposer_rendered_img.save(vposer_rendered_img_save_path)
+            try:
+                bm = BodyModel(smplx_path).to('cuda') if use_cuda else BodyModel(bm_path=smplx_path)
+                vposer_rendered_img = render_smpl_params(bm, pose_embedding.reshape((-1, 21, 3))).reshape(1, 1, 1, 400, 400, 3)
+                vposer_rendered_img = imagearray2file(vposer_rendered_img)[0]
+                vposer_rendered_img = pil_img.fromarray(vposer_rendered_img)
+                vposer_rendered_img.save(vposer_rendered_img_save_path)
+            except:
+                pass
         if out_img_save_path:
             vertices = model_output.vertices.detach().cpu().numpy().squeeze()
             out_mesh = trimesh.Trimesh(vertices, body_model.faces, process=False)

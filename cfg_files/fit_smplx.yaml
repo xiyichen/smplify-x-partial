@@ -24,6 +24,7 @@ body_prior_type: 'l2'
 left_hand_prior_type: l2
 right_hand_prior_type: l2
 jaw_prior_type: 'l2'
+focal_length: 5000
 num_pca_comps: 12
 # The constant for the robust loss function
 rho: 100
@@ -45,41 +46,62 @@ interactive: True
 visualize: True
 # Relative change in loss value
 body_pose_prior_weights:
-    - 500
-    - 300
-    - 200
+    - 4.04e2
+    - 4.04e2
+    - 57.4e0
+    - 4.78e0
+    - 4.78e0
 coll_loss_weights:
     - 0.0
-    - 0.1
+    - 0.0
+    - 0.0
+    - 0.01
     - 1.0
 shape_weights:
-    - 75
-    - 50
-    - 35
+    - 1.0e2
+    - 5.0e1
+    - 1.0e1
+    - 0.5e1
+    - 0.5e1
 expr_weights:
+    - 1.0e2
+    - 5.0e1
     - 1.0e1
     - 0.5e1
     - 0.5e1
 hand_pose_prior_weights:
+    - 4.04e2
+    - 4.04e2
     - 57.4
     - 4.78
     - 4.78
 jaw_pose_prior_weights:
-    - 1000, 10000, 10000
-    - 100, 1000, 1000
-    - 100, 1000, 1000
+    # First phase
+    - 4.04e03,4.04e04,4.04e04
+    # Second phase
+    - 4.04e03,4.04e04,4.04e04
+    # Third phase
+    - 574,5740,5740
+    # Fourth phase
+    - 47.8,478,478
+    # Fifth phase
+    - 47.8,478,478
 hand_joints_weights:
+    - 0.0
+    - 0.0
     - 0.0
     - 0.1
     - 2.0
 face_joints_weights:
     - 0.0
     - 0.0
+    - 0.0
+    - 0.0
     - 2.0
 use_face_contour: True
 init_joints_idxs:
     [0, 1, 2, 3, 5, 6, 8, 9, 12, 15, 16, 17, 18]
-use_vposer: False
+use_vposer: True
 vposer_ckpt: "vposer"
 num_betas: 10
 num_expression_coeffs: 10

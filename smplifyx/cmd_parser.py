@@ -173,7 +173,7 @@ def parse_config(argv=None):
     parser.add_argument('--prior_folder', type=str, default='prior',
                         help='The folder where the prior is stored')
     parser.add_argument('--focal_length',
-                        default=5000,
+                        default=None,
                         type=float,
                         help='Value of focal length.')
     parser.add_argument('--rho',
@@ -279,7 +279,7 @@ def parse_config(argv=None):
     parser.add_argument('--num_expression_coeffs', type=int, default=10,
                         help='The number of expression parameters')
     parser.add_argument('--regression_prior', default='combined', type=str,
-                        choices=['PIXIE', 'ExPose', 'PARE', 'combined', None],
+                        choices=['PIXIE', 'ExPose', 'PARE', 'combined', 'None'],
                         help='The regression method to use as prior')
     parser.add_argument('--pixie_results_directory', default=None, type=str,
                         help='Directory of PIXIE results')
