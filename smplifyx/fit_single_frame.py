@@ -232,7 +232,6 @@ def fit_single_frame(img,
         elif regression_prior == 'combined':
             full_pose_prior = expose_pose[:19] + pixie_pose[19:]
         full_pose_prior = torch.cat(full_pose_prior).reshape(1, -1)
-        # body_pose = torch.tensor(full_pose_prior, dtype=dtype, device=device, requires_grad=True)
         pose_embedding = full_pose_prior.clone().detach().requires_grad_(True)
 
     use_vposer = kwargs.get('use_vposer', True)
@@ -398,7 +397,6 @@ def fit_single_frame(img,
             init_t = torch.tensor(transl, dtype=dtype,
                                   device=device).reshape(1, -1)
         with torch.no_grad():
-            # camera.translation[:] = torch.tensor(init_t, device=device)
             camera.translation[:] = init_t.clone().detach()
             camera.center[:] = torch.tensor([cx, cy], dtype=dtype, device=device)
 
@@ -407,18 +405,20 @@ def fit_single_frame(img,
                                     use_vposer=use_vposer, vposer=vposer,
                                     pose_embedding=pose_embedding,
                                     model_type=kwargs.get('model_type', 'smpl'),
-                                    focal_length=focal_length, dtype=dtype)
+                                    focal_length=focal_length, dtype=dtype).reshape(1, -1)
         with torch.no_grad():
-            camera.translation[:] = torch.tensor(init_t.reshape(1, -1), device=device)
+            camera.translation[:] = init_t.clone().detach()
             camera.center[:] = torch.tensor([W, H], dtype=dtype) * 0.5
 
     camera_loss = fitting.create_loss('camera_init',
                                       joints_conf=joints_conf,
+                                      use_conf=kwargs.get('use_conf_for_camera_init'),
                                       trans_estimation=init_t,
                                       init_joints_idxs=init_joints_idxs,
                                       depth_loss_weight=depth_loss_weight,
                                       dtype=dtype).to(device=device)
     camera_loss.trans_estimation[:] = init_t
+
 
     loss = fitting.create_loss(loss_type=loss_type,
                                joint_weights=joint_weights,
@@ -439,7 +439,7 @@ def fit_single_frame(img,
                                search_tree=search_tree,
                                tri_filtering_module=filter_faces,
                                dtype=dtype,
-                               regression_pose=full_pose_prior,
+                               regression_pose=pose_embedding.clone().detach() if regression_prior else None,
                                num_stages=len(body_pose_prior_weights),
                                **kwargs)
     loss = loss.to(device=device)
@@ -471,7 +471,6 @@ def fit_single_frame(img,
         body_model.global_orient.requires_grad = True
 
         camera_opt_params = [camera.translation, body_model.global_orient]
-        # camera_opt_params = [camera.translation]
 
         camera_optimizer, camera_create_graph = optim_factory.create_optimizer(
             camera_opt_params,
@@ -650,8 +649,12 @@ def fit_single_frame(img,
             result['focal_length'] = focal_length
             result.update({key: val.detach().cpu().numpy()
                            for key, val in body_model.named_parameters()})
+
             if use_vposer:
-                result['body_pose'] = pose_embedding.detach().cpu().numpy()
+                body_pose = vposer.decode(pose_embedding, output_type='aa').view(1, -1) if use_vposer else None
+            else:
+                body_pose = pose_embedding
+            result['body_pose'] = body_pose.detach().cpu().numpy()
 
             results.append({'loss': final_loss_val,
                             'result': result})
@@ -665,10 +668,10 @@ def fit_single_frame(img,
             pickle.dump(results[min_idx]['result'], result_file, protocol=2)
 
         # save vertices to ply
-        #TODO: add face
-        vertices = body_model_output.vertices.squeeze(0).detach().cpu().numpy()
-        plydata = PlyElement.describe(np.array([(v[0], v[1], v[2]) for v in vertices],
-                                               dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')]),
-                                      'vertices')
-        plydata = PlyData([plydata], text=False, byte_order='<')
-        plydata.write(os.path.join(result_folder, 'vertices.ply'.format(opt_idx)))
+        if kwargs.get('save_vertices'):
+            vertices = body_model_output.vertices.squeeze(0).detach().cpu().numpy()
+            plydata = PlyElement.describe(np.array([(v[0], v[1], v[2]) for v in vertices],
+                                                   dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')]),
+                                          'vertices')
+            plydata = PlyData([plydata], text=False, byte_order='<')
+            plydata.write(os.path.join(result_folder, 'vertices.ply'.format(opt_idx)))

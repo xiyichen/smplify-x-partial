@@ -278,8 +278,8 @@ def parse_config(argv=None):
                         help='The number of shape parameters')
     parser.add_argument('--num_expression_coeffs', type=int, default=10,
                         help='The number of expression parameters')
-    parser.add_argument('--regression_prior', default='combined', type=str,
-                        choices=['PIXIE', 'ExPose', 'PARE', 'combined', 'None'],
+    parser.add_argument('--regression_prior', default=None, type=str,
+                        choices=['PIXIE', 'ExPose', 'PARE', 'combined', None],
                         help='The regression method to use as prior')
     parser.add_argument('--pixie_results_directory', default=None, type=str,
                         help='Directory of PIXIE results')
@@ -291,6 +291,8 @@ def parse_config(argv=None):
                         help='Directory of pre-trained gender classifier models')
     parser.add_argument('--use_camera_prior', type=lambda arg: arg.lower() == 'true', default=False,
                         help='Whether to use camera prior')
+    parser.add_argument('--use_conf_for_camera_init', type=lambda arg: arg.lower() == 'true', default=False,
+                        help='Whether to use joint confidences for camera initialization')
     parser.add_argument('--use_gender_classifier', type=lambda arg: arg.lower() == 'true', default=False,
                         help='Whether to use gender classifier')
     parser.add_argument('--save_vertices', type=lambda arg: arg.lower() == 'true', default=False,

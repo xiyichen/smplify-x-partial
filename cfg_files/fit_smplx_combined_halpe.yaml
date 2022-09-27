@@ -91,5 +91,6 @@ num_expression_coeffs: 10
 regression_prior: combined
 use_gender_classifier: True
 use_camera_prior: True
+use_conf_for_camera_init: True
 save_vertices: True
 confidence_threshold: 0.2

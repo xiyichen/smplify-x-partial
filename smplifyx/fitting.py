@@ -254,7 +254,6 @@ class FittingMonitor(object):
                               joints_conf=joints_conf,
                               joint_weights=joint_weights,
                               pose_embedding=pose_embedding,
-                              vposer=vposer,
                               use_vposer=use_vposer,
                               stage=stage,
                               **kwargs)
@@ -374,7 +373,7 @@ class SMPLifyLoss(nn.Module):
                 setattr(self, key, weight_tensor)
 
     def forward(self, body_model_output, camera, gt_joints, joints_conf,
-                body_model_faces, joint_weights, stage=0, vposer=None, use_vposer=False, pose_embedding=None,
+                body_model_faces, joint_weights, stage=0, use_vposer=False, pose_embedding=None,
                 **kwargs):
         projected_joints = camera(body_model_output.joints)
         # Calculate the weights for each joints
@@ -391,8 +390,7 @@ class SMPLifyLoss(nn.Module):
         if use_vposer:
             if stage+1 == self.num_stages and self.regression_pose is not None:
                 # if using vposer and regression prior, penalize towards encoded regression prior pose only at last stage
-                pose_embedding_prior = vposer.encode(self.regression_pose.reshape(1, -1)).sample()
-                pprior_loss = ((pose_embedding - pose_embedding_prior).pow(2).sum() * self.body_pose_weight ** 2)
+                pprior_loss = ((pose_embedding - self.regression_pose).pow(2).sum() * self.body_pose_weight ** 2)
             else:
                 pprior_loss = (pose_embedding.pow(2).sum() * self.body_pose_weight ** 2)
         elif self.regression_pose is not None:
@@ -464,11 +462,10 @@ class SMPLifyLoss(nn.Module):
 
 
 class SMPLifyCameraInitLoss(nn.Module):
-
     def __init__(self, init_joints_idxs, trans_estimation=None,
                  reduction='sum',
                  data_weight=1.0,
-                 depth_loss_weight=1e2, dtype=torch.float32, stage=0, joints_conf=None,
+                 depth_loss_weight=1e2, dtype=torch.float32, joints_conf=None, use_conf=False,
                  **kwargs):
         super(SMPLifyCameraInitLoss, self).__init__()
         self.dtype = dtype
@@ -488,6 +485,7 @@ class SMPLifyCameraInitLoss(nn.Module):
         self.register_buffer('depth_loss_weight',
                              torch.tensor(depth_loss_weight, dtype=dtype))
         self.joints_conf = joints_conf
+        self.use_conf = use_conf
 
     def reset_loss_weights(self, loss_weight_dict):
         for key in loss_weight_dict:
@@ -507,9 +505,12 @@ class SMPLifyCameraInitLoss(nn.Module):
             torch.index_select(gt_joints, 1, self.init_joints_idxs) -
             torch.index_select(projected_joints, 1, self.init_joints_idxs),
             2)
-        joints_conf = torch.index_select(self.joints_conf, 1, self.init_joints_idxs).unsqueeze(2)
 
-        joint_loss = torch.sum(joint_error * (joints_conf.unsqueeze(2) ** 2)) * self.data_weight ** 2
+        if self.use_conf:
+            joints_conf = torch.index_select(self.joints_conf, 1, self.init_joints_idxs).unsqueeze(2)
+            joint_loss = torch.sum(joint_error * (joints_conf.unsqueeze(2) ** 2)) * self.data_weight ** 2
+        else:
+            joint_loss = torch.sum(joint_error) * self.data_weight ** 2
 
         depth_loss = 0.0
         if (self.depth_loss_weight.item() > 0 and self.trans_estimation is not

@@ -27,7 +27,7 @@ jaw_prior_type: 'l2'
 num_pca_comps: 12
 # The constant for the robust loss function
 rho: 100
-interpenetration: False
+interpenetration: True
 df_cone_height: 0.0001
 # Upper arms and Spine 2
 # Neck and jaw
@@ -85,6 +85,7 @@ num_betas: 10
 num_expression_coeffs: 10
 regression_prior: combined
 use_gender_classifier: True
-use_camera_prior: False
+use_camera_prior: True
+use_conf_for_camera_init: True
 save_vertices: True
 confidence_threshold: 0.2

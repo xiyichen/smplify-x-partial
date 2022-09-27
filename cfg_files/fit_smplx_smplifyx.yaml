@@ -28,7 +28,7 @@ focal_length: 5000
 num_pca_comps: 12
 # The constant for the robust loss function
 rho: 100
-interpenetration: False
+interpenetration: True
 df_cone_height: 0.0001
 # Upper arms and Spine 2
 # Neck and jaw
@@ -100,13 +100,13 @@ face_joints_weights:
     - 2.0
 use_face_contour: True
 init_joints_idxs:
-    [0, 1, 2, 3, 5, 6, 8, 9, 12, 15, 16, 17, 18]
+    [9, 12, 2, 5]
 use_vposer: True
 vposer_ckpt: "vposer"
 num_betas: 10
 num_expression_coeffs: 10
-regression_prior: combined
 use_gender_classifier: True
 use_camera_prior: False
+use_conf_for_camera_init: False
 save_vertices: True
 confidence_threshold: 0.2
