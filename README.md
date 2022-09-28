@@ -58,16 +58,16 @@ Follow the installation instructions for each of the following before using the
 fitting code.
 
 1. [PyTorch](https://pytorch.org/)
-2. [SMPL-X](https://github.com/vchoutas/smplx)
+2. [SMPL-X](https://github.com/xiyichen/smplx)
 3. [VPoser](https://github.com/nghorbani/HumanBodyPrior)
 4. [Trimesh](https://trimsh.org/) for loading triangular meshes
 5. [Pyrender](https://pyrender.readthedocs.io/) for visualization
 
 ### Optional Dependencies
 
-1. [PyTorch Mesh self-intersection](https://github.com/vchoutas/torch-mesh-isect) for interpenetration penalty 
+1. [PyTorch Mesh self-intersection](https://github.com/xiyichen/torch-mesh-isect) for interpenetration penalty 
    * Download the per-triangle part segmentation: [smplx_parts_segm.pkl](https://owncloud.tuebingen.mpg.de/index.php/s/MWnr8Kso4K8T8at)
-2. [Homogenus](https://github.com/nghorbani/homogenus)
+2. [Homogenus](https://github.com/xiyichen/homogenus)
 3. [ExPose](https://github.com/vchoutas/expose) to use its predictions as prior / initialization
 4. [PIXIE](https://github.com/YadiraF/PIXIE) to use its predictions as prior / initialization
 
