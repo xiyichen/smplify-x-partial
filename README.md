@@ -33,6 +33,7 @@ python smplifyx/main.py --config cfg_files/fit_smplx.yaml
     --interpenetration="True/False"
     --part_segm_fn smplifyx/smplx_parts_segm.pkl
     --save_vertices="True/False"
+    --focal_length=FOCAL_LENGTH
     --use_gender_classifier="True/False"
     --homogeneous_ckpt HOMOGENUS_PRETRAINED_MODEL_FOLDER
     --expose_results_directory EXPOSE_RESULTS_FOLDER
@@ -41,9 +42,11 @@ python smplifyx/main.py --config cfg_files/fit_smplx.yaml
 ```
 where the `DATA_FOLDER` should contain two subfolders, *images*, where the images are located, and *keypoints*, where the OpenPose output should be stored. 
 
-If `use_gender_classifier` is set to True, `homogeneous_ckpt` should contain the path to the pre-trained model of the gender classifier [Homogenus](https://github.com/nghorbani/homogenus). If it's set to False, a gender flag `--gender='male/female/neutral'` should be used.
+If `use_gender_classifier` is set to True, `homogeneous_ckpt` should contain the path to the pre-trained model of the gender classifier [Homogenus](https://github.com/nghorbani/homogenus). If it's set to False, a gender flag `--gender='male/female/neutral'` should be used. The gender predictions aren't very accurate for aggresive truncations or low-resolution images. For such cases, we recommend inputting the gender detected by human.
 
 If you would like to use the combined body prior as proposed in the paper, you need to set `expose_results_directory` as the directory of ExPose prediction results and 'pixie_results_directory' as the directory of PIXIE prediction results.
+
+For aggressive trunctions in video captures or social media images, the focal length approximation mentioned in the paper could be inaccurate. In such cases, it is recommended to test different focal lengths.
 
 We provide a colab notebook with all required dependencies for fitting: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1DboPEEQQTJcHooNiBQ-gNRIo7p0o8t_8#scrollTo=sCUaBPKN7KbX)
 
@@ -64,7 +67,7 @@ fitting code.
 
 1. [PyTorch Mesh self-intersection](https://github.com/vchoutas/torch-mesh-isect) for interpenetration penalty 
    * Download the per-triangle part segmentation: [smplx_parts_segm.pkl](https://owncloud.tuebingen.mpg.de/index.php/s/MWnr8Kso4K8T8at)
-2. [Homogenus](https://github.com/nghorbani/homogenus) (However, its gender predictions aren't very accurate for aggresive truncations or low-resolution images. For such cases, we recommend inputting the gender detected by human)
+2. [Homogenus](https://github.com/nghorbani/homogenus)
 3. [ExPose](https://github.com/vchoutas/expose) to use its predictions as prior / initialization
 4. [PIXIE](https://github.com/YadiraF/PIXIE) to use its predictions as prior / initialization
 
