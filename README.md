@@ -20,6 +20,24 @@ We perform confidence calibration to blend keypoint detection results from two d
 
 We provide a colab notebook for keypoints blending and visualization: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1qJ-eeTDFdQLXR5vH98z_Gg4EgFGJfHCB)
 
+## Dependencies
+
+Follow the installation instructions for each of the following before using the fitting code. For some of the components, please install our modified version that have been adapted and tested for our optimization pipeline.
+
+1. [PyTorch](https://pytorch.org/)
+2. [SMPL-X](https://github.com/xiyichen/smplx)
+3. [VPoser](https://github.com/nghorbani/HumanBodyPrior)
+4. [Trimesh](https://trimsh.org/) for loading triangular meshes
+5. [Pyrender](https://pyrender.readthedocs.io/) for visualization
+
+### Optional Dependencies
+
+1. [PyTorch Mesh self-intersection](https://github.com/xiyichen/torch-mesh-isect) for interpenetration penalty 
+   * Download the per-triangle part segmentation: [smplx_parts_segm.pkl](https://owncloud.tuebingen.mpg.de/index.php/s/MWnr8Kso4K8T8at)
+2. [Homogenus](https://github.com/xiyichen/homogenus) for gender classification
+3. [ExPose](https://github.com/vchoutas/expose) to use its predictions as prior / initialization
+4. [PIXIE](https://github.com/YadiraF/PIXIE) to use its predictions as prior / initialization
+
 ## Fitting 
 Run the following command to execute the code:
 ```Shell
@@ -52,32 +70,13 @@ We provide a colab notebook with all required dependencies for fitting: [![Open 
 
 In addition, two samples from the cropped EHF dataset with blended keypoints, ExPose and PIXIE prediction results are provided [here](https://github.com/xiyichen/smplify-x-partial/tree/master/demo) that allows you to reproduce the results in our paper. Disclaimer: the EHF dataset is for research purpose only. The entire dataset can be downloaded [here](https://smpl-x.is.tue.mpg.de/download.php) after a regrestration.
 
-## Dependencies
-
-Follow the installation instructions for each of the following before using the
-fitting code.
-
-1. [PyTorch](https://pytorch.org/)
-2. [SMPL-X](https://github.com/xiyichen/smplx)
-3. [VPoser](https://github.com/nghorbani/HumanBodyPrior)
-4. [Trimesh](https://trimsh.org/) for loading triangular meshes
-5. [Pyrender](https://pyrender.readthedocs.io/) for visualization
-
-### Optional Dependencies
-
-1. [PyTorch Mesh self-intersection](https://github.com/xiyichen/torch-mesh-isect) for interpenetration penalty 
-   * Download the per-triangle part segmentation: [smplx_parts_segm.pkl](https://owncloud.tuebingen.mpg.de/index.php/s/MWnr8Kso4K8T8at)
-2. [Homogenus](https://github.com/xiyichen/homogenus) for gender classification
-3. [ExPose](https://github.com/vchoutas/expose) to use its predictions as prior / initialization
-4. [PIXIE](https://github.com/YadiraF/PIXIE) to use its predictions as prior / initialization
-
 ## Evaluation
 ![](images/qualitative_evaluation.jpg)
 Qualitative evaluation on the cropped EHF dataset. From left to right: input image, [PARE](https://pare.is.tue.mpg.de/), [ExPose](https://expose.is.tue.mpg.de), [PIXIE](https://pixie.is.tue.mpg.de), ours.
 
 ![](images/quantitative_evaluation.png)
 
-To perform quantitative evaluation on cropped EHF dataset, check out `smplifyx/eval.py`. The required vertex indices and vertex to 14 joint regressor can be downloaded [here](https://polybox.ethz.ch/index.php/s/Umg9qwKG5MNm6pZ).
+To perform quantitative evaluation on the cropped EHF dataset, check out `smplifyx/eval.py`. The data required for evaluation, including vertex indices for different body parts, bounding boxes we used to crop the EHF dataset, and the weights for vertex-to-14-joints regressor can be downloaded [here](https://polybox.ethz.ch/index.php/s/2Ii1wdb3Hei7aba).
 
 ## Acknowledgement & Citation
 This work is a Master's semester project at [Computer Vision and Learning Group (VLG), ETH Zurich](https://vlg.inf.ethz.ch/) by Xiyi Chen and supervised by [Dr. Sergey Prokudin](https://vlg.inf.ethz.ch/team/Dr-Sergey-Prokudin.html). The code is built on [SMPLify-X](https://github.com/vchoutas/smplify-x). If you find this work useful for your research, please consider citing:
