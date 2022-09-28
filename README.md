@@ -42,7 +42,7 @@ python smplifyx/main.py --config cfg_files/fit_smplx.yaml
 ```
 where the `DATA_FOLDER` should contain two subfolders, *images*, where the images are located, and *keypoints*, where the OpenPose output should be stored. 
 
-If `use_gender_classifier` is set to True, `homogeneous_ckpt` should contain the path to the pre-trained model of the gender classifier [Homogenus](https://github.com/nghorbani/homogenus). If it's set to False, a gender flag `--gender='male/female/neutral'` should be used. The gender predictions aren't very accurate for aggresive truncations and low-resolution images. For such cases, we recommend inputting the gender detected by human.
+If `use_gender_classifier` is set to True, `homogeneous_ckpt` should contain the path to the pre-trained model of the gender classifier [Homogenus](https://github.com/nghorbani/homogenus). If it's set to False, a gender flag `--gender='male/female/neutral'` should be used. The gender predictions aren't very accurate for aggresive truncations and low-resolution images. For such cases, we recommend inputting the gender determined by human.
 
 For aggressive trunctions in video captures or social media images, the focal length approximation mentioned in the paper could also be inaccurate. In such cases, it is recommended to test different focal length values.
 
@@ -50,7 +50,7 @@ If you would like to use the combined body prior as proposed in the paper, you n
 
 We provide a colab notebook with all required dependencies for fitting: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1DboPEEQQTJcHooNiBQ-gNRIo7p0o8t_8#scrollTo=sCUaBPKN7KbX)
 
-In addition, two sample from the cropped EHF dataset with blended keypoints, ExPose and PIXIE prediction results are provided [here](https://github.com/xiyichen/smplify-x-partial/tree/master/demo) that allows you to reproduce the results in our paper. Disclaimer: the EHF dataset is for research purpose only. The entire dataset can be downloaded [here](https://smpl-x.is.tue.mpg.de/download.php) after a regrestration.
+In addition, two samples from the cropped EHF dataset with blended keypoints, ExPose and PIXIE prediction results are provided [here](https://github.com/xiyichen/smplify-x-partial/tree/master/demo) that allows you to reproduce the results in our paper. Disclaimer: the EHF dataset is for research purpose only. The entire dataset can be downloaded [here](https://smpl-x.is.tue.mpg.de/download.php) after a regrestration.
 
 ## Dependencies
 
@@ -77,4 +77,4 @@ Qualitative evaluation on the cropped EHF dataset. From left to right: input ima
 
 ![](images/quantitative_evaluation.png)
 
-Evaluation code coming soon...
+To perform quantitative evaluation on cropped EHF dataset, check out `smplifyx/eval.py`. The required vertex indices and vertex to 14 joint regressor can be downloaded [here](https://polybox.ethz.ch/index.php/s/Umg9qwKG5MNm6pZ).
