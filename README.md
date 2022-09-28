@@ -9,7 +9,7 @@ Qualitative evaluation on video captures of partially-observed humans in *Star T
 
 ## Description
 
-This repository contains the fitting and evaluation code used for the experiments in <strong>Towards Robust 3D Body Mesh Inference of Partially-observed Humans</strong>, a Master's semester project at [Computer Vision and Learning Group (VLG), ETH Zurich](https://vlg.inf.ethz.ch/). The code is built on [SMPLify-X](https://github.com/vchoutas/smplify-x).
+This repository contains the fitting and evaluation code used for the experiments in <strong>Towards Robust 3D Body Mesh Inference of Partially-observed Humans</strong>.
 
 ## Keypoints Blending
 [OpenPose BODY_25 format](https://cmu-perceptual-computing-lab.github.io/openpose/web/html/doc/md_doc_02_output.html#pose-output-format-body_25)|[MMPose Halpe format](https://mmpose.readthedocs.io/en/latest/topics/wholebody.html#topdown-heatmap-hrnet-dark-on-halpe)                      |Blending
@@ -67,7 +67,7 @@ fitting code.
 
 1. [PyTorch Mesh self-intersection](https://github.com/xiyichen/torch-mesh-isect) for interpenetration penalty 
    * Download the per-triangle part segmentation: [smplx_parts_segm.pkl](https://owncloud.tuebingen.mpg.de/index.php/s/MWnr8Kso4K8T8at)
-2. [Homogenus](https://github.com/xiyichen/homogenus)
+2. [Homogenus](https://github.com/xiyichen/homogenus) for gender classification
 3. [ExPose](https://github.com/vchoutas/expose) to use its predictions as prior / initialization
 4. [PIXIE](https://github.com/YadiraF/PIXIE) to use its predictions as prior / initialization
 
@@ -78,3 +78,20 @@ Qualitative evaluation on the cropped EHF dataset. From left to right: input ima
 ![](images/quantitative_evaluation.png)
 
 To perform quantitative evaluation on cropped EHF dataset, check out `smplifyx/eval.py`. The required vertex indices and vertex to 14 joint regressor can be downloaded [here](https://polybox.ethz.ch/index.php/s/Umg9qwKG5MNm6pZ).
+
+## Acknowledgement & Citation
+This work is a Master's semester project at [Computer Vision and Learning Group (VLG), ETH Zurich](https://vlg.inf.ethz.ch/) by Xiyi Chen and supervised by [Dr. Sergey Prokudin](https://vlg.inf.ethz.ch/team/Dr-Sergey-Prokudin.html). The code is built on [SMPLify-X](https://github.com/vchoutas/smplify-x). If you find this work useful for your research, please consider citing:
+```
+@misc{smplify_x_partial,
+  title = {Towards Robust 3D Body Mesh Inference of Partially-observed Humans},
+  howpublished = {\url{https://github.com/xiyichen/smplify-x-partial}},
+  author = {Chen, Xiyi and Prokudin, Sergey},
+}
+
+@inproceedings{SMPL-X:2019,
+  title = {Expressive Body Capture: 3D Hands, Face, and Body from a Single Image},
+  author = {Pavlakos, Georgios and Choutas, Vasileios and Ghorbani, Nima and Bolkart, Timo and Osman, Ahmed A. A. and Tzionas, Dimitrios and Black, Michael J.},
+  booktitle = {Proceedings IEEE Conf. on Computer Vision and Pattern Recognition (CVPR)},
+  year = {2019}
+}
+```
