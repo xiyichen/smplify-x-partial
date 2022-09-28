@@ -11,7 +11,7 @@ Qualitative evaluation on video captures of partially-observed humans in *Star T
 
 This repository contains the fitting and evaluation code used for the experiments in <strong>Towards Robust 3D Body Mesh Inference of Partially-observed Humans</strong>, a Master's semester project at [Computer Vision and Learning Group (VLG), ETH Zurich](https://vlg.inf.ethz.ch/). The code is built on [SMPLify-X](https://github.com/vchoutas/smplify-x).
 
-### Keypoints Blending
+## Keypoints Blending
 [OpenPose BODY_25 format](https://cmu-perceptual-computing-lab.github.io/openpose/web/html/doc/md_doc_02_output.html#pose-output-format-body_25)|[MMPose Halpe format](https://mmpose.readthedocs.io/en/latest/topics/wholebody.html#topdown-heatmap-hrnet-dark-on-halpe)                      |Blending
 :----------------------------:|:----------------------------:|:----------------------------:
 ![](/images/18_openpose.png)  |![](/images/18_mmpose.png)    |![](/images/18_blended.png)
@@ -20,7 +20,7 @@ We perform confidence calibration to blend keypoint detection results from two d
 
 We provide a colab notebook for keypoints blending and visualization: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1qJ-eeTDFdQLXR5vH98z_Gg4EgFGJfHCB)
 
-### Fitting 
+## Fitting 
 Run the following command to execute the code:
 ```Shell
 python smplifyx/main.py --config cfg_files/fit_smplx.yaml 
@@ -71,7 +71,7 @@ fitting code.
 3. [ExPose](https://github.com/vchoutas/expose) to use its predictions as prior / initialization
 4. [PIXIE](https://github.com/YadiraF/PIXIE) to use its predictions as prior / initialization
 
-### Evaluation
+## Evaluation
 ![](images/qualitative_evaluation.jpg)
 Qualitative evaluation on the cropped EHF dataset. From left to right: input image, [PARE](https://pare.is.tue.mpg.de/), [ExPose](https://expose.is.tue.mpg.de), [PIXIE](https://pixie.is.tue.mpg.de), ours.
 
