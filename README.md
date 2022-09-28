@@ -1,85 +1,53 @@
-## Expressive Body Capture: 3D Hands, Face, and Body from a Single Image
+## Towards Robust 3D Body Mesh Inference of Partially-observed Humans
 
-[[Project Page](https://smpl-x.is.tue.mpg.de/)] 
-[[Paper](https://ps.is.tuebingen.mpg.de/uploads_file/attachment/attachment/497/SMPL-X.pdf)]
-[[Supp. Mat.](https://ps.is.tuebingen.mpg.de/uploads_file/attachment/attachment/498/SMPL-X-supp.pdf)]
+[[Paper](https://drive.google.com/file/d/1LG8N73rY9w-GD86RvLNflcT33Y197mlN/view?usp=sharing)]
+[[Slides](https://drive.google.com/file/d/19S5DjymdJS-5VcZ5PIo2FsS-Z1QqukUm/view?usp=sharing)]
 
-![SMPL-X Examples](./images/teaser_fig.png)
-
-## Table of Contents
-  * [License](#license)
-  * [Description](#description)
-    * [Fitting](#fitting)
-    * [Different Body Models](#different-body-models)
-    * [Visualizing Results](#visualizing-results)
-  * [Dependencies](#dependencies)
-  * [Citation](#citation)
-  * [Acknowledgments](#acknowledgments)
-  * [Contact](#contact)
-
-
-## License
-
-Software Copyright License for **non-commercial scientific research purposes**.
-Please read carefully the [terms and conditions](https://github.com/vchoutas/smplx/blob/master/LICENSE) and any accompanying documentation before you download and/or use the SMPL-X/SMPLify-X model, data and software, (the "Model & Software"), including 3D meshes, blend weights, blend shapes, textures, software, scripts, and animations. By downloading and/or using the Model & Software (including downloading, cloning, installing, and any other use of this github repository), you acknowledge that you have read these terms and conditions, understand them, and agree to be bound by them. If you do not agree with these terms and conditions, you must not download and/or use the Model & Software. Any infringement of the terms of this agreement will automatically terminate your rights under this [License](./LICENSE).
-
-## Disclaimer
-
-The original images used for the figures 1 and 2 of the paper can be found in [this link](https://www.gettyimages.de/search/stack/546047069#). 
-The images in the paper are used under license from gettyimages.com.
-We have acquired the right to use them in the publication, but redistribution is not allowed.
-Please follow the instructions on the given link to acquire right of usage.
-Our results are obtained on the 483 × 724 pixels resolution of the original images.
+![](images/qualitative_evaluation_video_captures.jpg)
+Qualitative evaluation on video captures of partially-observed humans in *Star Trek: The Next Generation*. From left to right: input image, 
+[ExPose](https://expose.is.tue.mpg.de), [PIXIE](https://pixie.is.tue.mpg.de), ours.
 
 ## Description
 
-This repository contains the fitting code used for the experiments in [Expressive Body Capture: 3D Hands, Face, and Body from a Single Image](https://smpl-x.is.tue.mpg.de/).
+This repository contains the fitting and evaluation code used for the experiments in <strong>Towards Robust 3D Body Mesh Inference of Partially-observed Humans</strong>, a Master's semester project at [Computer Vision and Learning Group (VLG), ETH Zurich](https://vlg.inf.ethz.ch/). The code is built on [SMPLify-X](https://github.com/vchoutas/smplify-x).
+
+### Keypoints Blending
+[OpenPose BODY_25 format](https://cmu-perceptual-computing-lab.github.io/openpose/web/html/doc/md_doc_02_output.html#pose-output-format-body_25)|[MMPose Halpe format](https://mmpose.readthedocs.io/en/latest/topics/wholebody.html#topdown-heatmap-hrnet-dark-on-halpe)                      |Blending
+:----------------------------:|:----------------------------:|:----------------------------:
+![](/images/18_openpose.png)  |![](/images/18_mmpose.png)    |![](/images/18_blended.png)
+
+We perform confidence calibration to blend keypoint detection results from two detectors: [OpenPose BODY_25 format](https://cmu-perceptual-computing-lab.github.io/openpose/web/html/doc/md_doc_02_output.html#pose-output-format-body_25) and [MMPose Halpe format](https://mmpose.readthedocs.io/en/latest/topics/wholebody.html#topdown-heatmap-hrnet-dark-on-halpe). The per-keypoint heuristics on the [SHHQ dataset](https://stylegan-human.github.io/) as mentioned in the paper can be downloaded [here](https://polybox.ethz.ch/index.php/s/UHTisMSR5RzMi0X).
+
+We provide a colab notebook for keypoints blending and visualization: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1qJ-eeTDFdQLXR5vH98z_Gg4EgFGJfHCB)
 
 ### Fitting 
 Run the following command to execute the code:
 ```Shell
 python smplifyx/main.py --config cfg_files/fit_smplx.yaml 
     --data_folder DATA_FOLDER 
-    --output_folder OUTPUT_FOLDER 
+    --output_folder OUTPUT_FOLDER
+    --gender GENDER
     --visualize="True/False"
     --model_folder MODEL_FOLDER
     --vposer_ckpt VPOSER_FOLDER
-    --part_segm_fn smplx_parts_segm.pkl
+    --interpenetration="True/False"
+    --part_segm_fn smplifyx/smplx_parts_segm.pkl
+    --save_vertices="True/False"
+    --use_gender_classifier="True/False"
+    --homogeneous_ckpt HOMOGENUS_PRETRAINED_MODEL_FOLDER
+    --expose_results_directory EXPOSE_RESULTS_FOLDER
+    --pixie_results_directory PIXIE_RESULTS_FOLDER
+    --regression_prior='combined/ExPose/PIXIE/PARE/None'
 ```
-where the `DATA_FOLDER` should contain two subfolders, *images*, where the
-images are located, and *keypoints*, where the OpenPose output should be
-stored.
+where the `DATA_FOLDER` should contain two subfolders, *images*, where the images are located, and *keypoints*, where the OpenPose output should be stored. 
 
-### Different Body Models
+If `use_gender_classifier` is set to True, `homogeneous_ckpt` should contain the path to the pre-trained model of the gender classifier [Homogenus](https://github.com/nghorbani/homogenus). If it's set to False, a gender flag `--gender='male/female/neutral'` should be used.
 
-To fit [SMPL](http://smpl.is.tue.mpg.de/) or [SMPL+H](http://mano.is.tue.mpg.de), replace the *yaml* configuration file 
-with either *fit_smpl.yaml* or *fit_smplx.yaml*, i.e.:
- * for SMPL:
- ```Shell
- python smplifyx/main.py --config cfg_files/fit_smpl.yaml 
-    --data_folder DATA_FOLDER 
-    --output_folder OUTPUT_FOLDER 
-    --visualize="True/False"
-    --model_folder MODEL_FOLDER
-    --vposer_ckpt VPOSER_FOLDER
- ```
-  * for SMPL+H:
- ```Shell
- python smplifyx/main.py --config cfg_files/fit_smplh.yaml 
-    --data_folder DATA_FOLDER 
-    --output_folder OUTPUT_FOLDER 
-    --visualize="True/False"
-    --model_folder MODEL_FOLDER
-    --vposer_ckpt VPOSER_FOLDER
- ```
- 
-### Visualizing Results
+If you would like to use the combined body prior as proposed in the paper, you need to set `expose_results_directory` as the directory of ExPose prediction results and 'pixie_results_directory' as the directory of PIXIE prediction results.
 
-To visualize the results produced by the method you can run the following script:
-```Shell
-python smplifyx/render_results.py --mesh_fns OUTPUT_MESH_FOLDER
-```
-where *OUTPUT_MESH_FOLDER* is the folder that contains the resulting meshes.
+We provide a colab notebook with all required dependencies for fitting: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1DboPEEQQTJcHooNiBQ-gNRIo7p0o8t_8#scrollTo=sCUaBPKN7KbX)
+
+In addition, two sample from the cropped EHF dataset with blended keypoints, ExPose and PIXIE prediction results are provided [here](https://github.com/xiyichen/smplify-x-partial/tree/master/demo) that allows you to reproduce the results in our paper. Disclaimer: the EHF dataset is for research purpose only. The entire dataset can be downloaded [here](https://smpl-x.is.tue.mpg.de/download.php) after a regrestration.
 
 ## Dependencies
 
@@ -89,42 +57,21 @@ fitting code.
 1. [PyTorch](https://pytorch.org/)
 2. [SMPL-X](https://github.com/vchoutas/smplx)
 3. [VPoser](https://github.com/nghorbani/HumanBodyPrior)
-4. [Homogenus](https://github.com/nghorbani/homogenus)
+4. [Trimesh](https://trimsh.org/) for loading triangular meshes
+5. [Pyrender](https://pyrender.readthedocs.io/) for visualization
 
 ### Optional Dependencies
 
 1. [PyTorch Mesh self-intersection](https://github.com/vchoutas/torch-mesh-isect) for interpenetration penalty 
    * Download the per-triangle part segmentation: [smplx_parts_segm.pkl](https://owncloud.tuebingen.mpg.de/index.php/s/MWnr8Kso4K8T8at)
-1. [Trimesh](https://trimsh.org/) for loading triangular meshes
-1. [Pyrender](https://pyrender.readthedocs.io/) for visualization
+2. [Homogenus](https://github.com/nghorbani/homogenus) (However, its gender predictions aren't very accurate for aggresive truncations or low-resolution images. For such cases, we recommend inputting the gender detected by human)
+3. [ExPose](https://github.com/vchoutas/expose) to use its predictions as prior / initialization
+4. [PIXIE](https://github.com/YadiraF/PIXIE) to use its predictions as prior / initialization
 
-The code has been tested with Python 3.6, CUDA 10.0, CuDNN 7.3 and PyTorch 1.0 on Ubuntu 18.04. 
+### Evaluation
+![](images/qualitative_evaluation.jpg)
+Qualitative evaluation on the cropped EHF dataset. From left to right: input image, [PARE](https://pare.is.tue.mpg.de/), [ExPose](https://expose.is.tue.mpg.de), [PIXIE](https://pixie.is.tue.mpg.de), ours.
 
-## Citation
+![](images/quantitative_evaluation.png)
 
-If you find this Model & Software useful in your research we would kindly ask you to cite:
-
-```
-@inproceedings{SMPL-X:2019,
-  title = {Expressive Body Capture: 3D Hands, Face, and Body from a Single Image},
-  author = {Pavlakos, Georgios and Choutas, Vasileios and Ghorbani, Nima and Bolkart, Timo and Osman, Ahmed A. A. and Tzionas, Dimitrios and Black, Michael J.},
-  booktitle = {Proceedings IEEE Conf. on Computer Vision and Pattern Recognition (CVPR)},
-  year = {2019}
-}
-```
-
-## Acknowledgments
-
-### LBFGS with Strong Wolfe Line Search
-
-The LBFGS optimizer with Strong Wolfe Line search is taken from this [Pytorch pull request](https://github.com/pytorch/pytorch/pull/8824). Special thanks to 
-[Du Phan](https://github.com/fehiepsi) for implementing this. 
-We will update the repository once the pull request is merged.
-
-## Contact
-The code of this repository was implemented by [Vassilis Choutas](mailto:vassilis.choutas@tuebingen.mpg.de) and
-[Georgios Pavlakos](mailto:pavlakos@seas.upenn.edu).
-
-For questions, please contact [smplx@tue.mpg.de](mailto:smplx@tue.mpg.de). 
-
-For commercial licensing (and all related questions for business applications), please contact [ps-licensing@tue.mpg.de](mailto:ps-licensing@tue.mpg.de).
+Evaluation code coming soon...
