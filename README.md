@@ -5,7 +5,7 @@
 
 ![](images/qualitative_evaluation_video_captures.jpg)
 Qualitative evaluation on video captures of partially-observed humans in *Star Trek: The Next Generation*. From left to right: input image, 
-[ExPose](https://expose.is.tue.mpg.de), [PIXIE](https://pixie.is.tue.mpg.de), ours.
+[PIXIE](https://pixie.is.tue.mpg.de), [ExPose](https://expose.is.tue.mpg.de), ours.
 
 ## Description
 
@@ -66,13 +66,17 @@ For aggressive trunctions in video captures or social media images, the focal le
 
 If you would like to use the combined body prior as proposed in the paper, you need to set `expose_results_directory` as the directory of ExPose prediction results and `pixie_results_directory` as the directory of PIXIE prediction results.
 
-We provide a colab notebook with all required dependencies for fitting: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1DboPEEQQTJcHooNiBQ-gNRIo7p0o8t_8#scrollTo=sCUaBPKN7KbX)
+Two samples from the cropped EHF dataset with blended keypoints, ExPose and PIXIE prediction results are provided [here](https://github.com/xiyichen/smplify-x-partial/tree/master/demo) that allows you to reproduce the results in our paper. Disclaimer: the EHF dataset is for research purpose only. The entire dataset can be downloaded [here](https://smpl-x.is.tue.mpg.de/download.php) after a regrestration.
 
-In addition, two samples from the cropped EHF dataset with blended keypoints, ExPose and PIXIE prediction results are provided [here](https://github.com/xiyichen/smplify-x-partial/tree/master/demo) that allows you to reproduce the results in our paper. Disclaimer: the EHF dataset is for research purpose only. The entire dataset can be downloaded [here](https://smpl-x.is.tue.mpg.de/download.php) after a regrestration.
+We provide a colab notebook with all required dependencies for fitting: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1DboPEEQQTJcHooNiBQ-gNRIo7p0o8t_8#scrollTo=sCUaBPKN7KbX)
 
 ## Evaluation
 ![](images/qualitative_evaluation.jpg)
-Qualitative evaluation on the cropped EHF dataset. From left to right: input image, [PARE](https://pare.is.tue.mpg.de/), [ExPose](https://expose.is.tue.mpg.de), [PIXIE](https://pixie.is.tue.mpg.de), ours.
+Qualitative evaluation on the cropped EHF dataset. From left to right: input image, [PARE](https://pare.is.tue.mpg.de/), [PIXIE](https://pixie.is.tue.mpg.de), [ExPose](https://expose.is.tue.mpg.de), ours.
+
+
+![](images/heatmaps.jpg)
+Heatmap comparison on the SMPL-X body model using PA-V2V metric for [PIXIE](https://pixie.is.tue.mpg.de), [ExPose](https://expose.is.tue.mpg.de), and ours, averaged on all 100 images in the cropped EHF dataset.
 
 ![](images/quantitative_evaluation.png)
 
