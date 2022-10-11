@@ -7,6 +7,9 @@
 Qualitative evaluation on video captures of partially-observed humans in *Star Trek: The Next Generation*. From left to right: input image, 
 [PIXIE](https://pixie.is.tue.mpg.de), [ExPose](https://expose.is.tue.mpg.de), ours.
 
+<img src="images/egobody_demo.gif" width="100%" /> \
+Demo on one of the test videos in the [EgoBody](https://sanweiliti.github.io/egobody/egobody.html) dataset.
+
 ## Description
 
 This repository contains the fitting and evaluation code used for the experiments in <strong>Towards Robust 3D Body Mesh Inference of Partially-observed Humans</strong>.
