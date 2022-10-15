@@ -21,7 +21,7 @@ This repository contains the fitting and evaluation code used for the experiment
 
 We perform confidence calibration to blend keypoint detection results from two detectors: [OpenPose BODY_25 format](https://cmu-perceptual-computing-lab.github.io/openpose/web/html/doc/md_doc_02_output.html#pose-output-format-body_25) and [MMPose Halpe format](https://mmpose.readthedocs.io/en/latest/topics/wholebody.html#topdown-heatmap-hrnet-dark-on-halpe). The per-keypoint heuristics on the [SHHQ dataset](https://stylegan-human.github.io/) as mentioned in the paper can be downloaded [here](https://polybox.ethz.ch/index.php/s/UHTisMSR5RzMi0X).
 
-We provide a colab notebook for keypoints blending and visualization: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1qJ-eeTDFdQLXR5vH98z_Gg4EgFGJfHCB)
+We provide a colab notebook for keypoints blending and visualization: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/xiyichen/smplify-x-partial/blob/master/Keypoints_Blending_with_Confidence_Calibration.ipynb)
 
 ## Dependencies
 
@@ -71,7 +71,7 @@ If you would like to use the combined body prior as proposed in the paper, you n
 
 Two samples from the cropped EHF dataset with blended keypoints, ExPose and PIXIE prediction results are provided [here](https://github.com/xiyichen/smplify-x-partial/tree/master/demo) that allows you to reproduce the results in our paper. Disclaimer: the EHF dataset is for research purpose only. The entire dataset can be downloaded [here](https://smpl-x.is.tue.mpg.de/download.php) after a regrestration.
 
-We provide a colab notebook with all required dependencies for fitting: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1DboPEEQQTJcHooNiBQ-gNRIo7p0o8t_8#scrollTo=sCUaBPKN7KbX)
+We provide a colab notebook with all required dependencies for fitting: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/xiyichen/smplify-x-partial/blob/master/SMPLify_X_Partial_fitting.ipynb)
 
 ## Evaluation
 ![](images/qualitative_evaluation.jpg)
