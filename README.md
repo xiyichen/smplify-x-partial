@@ -86,12 +86,12 @@ Heatmap comparison on the SMPL-X body model using PA-V2V metric for [PIXIE](http
 To perform quantitative evaluation on the cropped EHF dataset, check out `smplifyx/eval.py`. The data required for evaluation, including vertex indices for different body parts, bounding boxes we used to crop the EHF dataset, and the weights for vertex-to-14-joints regressor can be downloaded [here](https://polybox.ethz.ch/index.php/s/2Ii1wdb3Hei7aba).
 
 ## Acknowledgement & Citation
-This work is a Master's semester project at [Computer Vision and Learning Group (VLG), ETH Zurich](https://vlg.inf.ethz.ch/) by Xiyi Chen and supervised by [Dr. Sergey Prokudin](https://vlg.inf.ethz.ch/team/Dr-Sergey-Prokudin.html). The code is built on [SMPLify-X](https://github.com/vchoutas/smplify-x). If you find this work useful for your research, please consider citing:
+This work is a Master's semester project at [Computer Vision and Learning Group (VLG), ETH Zurich](https://vlg.inf.ethz.ch/) by [Xiyi Chen](https://xiyichen.github.io), supervised by [Dr. Sergey Prokudin](https://vlg.inf.ethz.ch/team/Dr-Sergey-Prokudin.html). The code is built on [SMPLify-X](https://github.com/vchoutas/smplify-x). If you find this work useful for your research, please consider citing:
 ```
 @misc{smplify_x_partial,
   title = {Towards Robust 3D Body Mesh Inference of Partially-observed Humans},
   howpublished = {\url{https://github.com/xiyichen/smplify-x-partial}},
-  author = {Chen, Xiyi and Prokudin, Sergey},
+  author = {Chen, Xiyi},
 }
 
 @inproceedings{SMPL-X:2019,
