@@ -1,6 +1,6 @@
 ## Towards Robust 3D Body Mesh Inference of Partially-observed Humans
 
-[[Paper](https://drive.google.com/file/d/1LG8N73rY9w-GD86RvLNflcT33Y197mlN/view?usp=sharing)]
+[[Report](https://drive.google.com/file/d/1TE0nLoUUFp5h8Kb7i4i62mxP2clo7Fdr/view?usp=sharing)]
 [[Slides](https://drive.google.com/file/d/19S5DjymdJS-5VcZ5PIo2FsS-Z1QqukUm/view?usp=sharing)]
 
 ![](images/qualitative_evaluation_video_captures.jpg)
